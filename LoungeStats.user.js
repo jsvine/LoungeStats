@@ -4,7 +4,7 @@
 // @author      Kinsi http://reddit.com/u/kinsi55
 // @include     http://csgolounge.com/myprofile
 // @include     http://dota2lounge.com/myprofile
-// @version     0.3.4
+// @version     0.3.5
 // @require     http://bibabot.de/stuff/jquery-2.1.1.min.js
 // @require     http://bibabot.de/stuff/jquery.jqplot.min.js
 // @require     http://bibabot.de/stuff/jqplot.cursor.min.js
@@ -25,7 +25,7 @@ var app_id = window.location.hostname == 'dota2lounge.com' ? '570' : '730';
 var cleanparse = false;
 var inexactAlert = false;
 var bets = {};
-var version = '0.3.4RC';
+var version = '0.3.5RC';
 var newVersion = (localStorage['LoungeStats_lastversion'] != version);
 
 var setting_method = localStorage['LoungeStats_setting_method'];
@@ -310,6 +310,14 @@ function generateStatsPage() {
 	for(var i in betsKeys) {
 		var b = bets[betsKeys[i]];
 		var betid = b.matchid;
+		var betdate = b.date;
+		//And, since i cached the "correct" value above for the market crash, i need to use it here too ofc.
+		var x = Date.parse(betdate.replace(/-/g,' ') + ' +0');
+
+		//since between 28.11.2014 and 30.11.2014 the market crashed and the price skyrocketed, i need to fix gabens shit.
+		if(x>1417132800000&&x<1417395600000){
+			betdate="2014-11-28 00:00:00";
+		}
 
 		var value = 0.0;
 		var betValue = 0.0;
@@ -327,7 +335,7 @@ function generateStatsPage() {
 
 		for(item in b.items.bet) {
 			itemname = b.items.bet[item];
-			betValue += getItemPrice(itemname, b.date);
+			betValue += getItemPrice(itemname, betdate);
 		}
 
 		if(setting_debug == '1') console.log('################################# ' + teamString + '(' + betid + ')');
@@ -335,9 +343,9 @@ function generateStatsPage() {
 		if(setting_debug == '1') console.log(b.items.won);
 		for(item in b.items.won) {
 			itemname = b.items.won[item];
-			price = getItemPrice(itemname, b.date);
-			if(setting_debug == '1') console.log(itemname + ': ' + price + ' (' + b.date + ')');
-			if(setting_debug == '1') console.log('Keyname: ' + getItemKeyName(itemname, b.date));
+			price = getItemPrice(itemname, betdate);
+			if(setting_debug == '1') console.log(itemname + ': ' + price + ' (' + betdate + ')');
+			if(setting_debug == '1') console.log('Keyname: ' + getItemKeyName(itemname, betdate));
 			value += price;
 			overallWon += price;
 		}
@@ -347,9 +355,9 @@ function generateStatsPage() {
 
 		for(item in b.items.lost) {
 			itemname = b.items.lost[item];
-			price = getItemPrice(itemname, b.date);
-			if(setting_debug == '1') console.log(itemname + ': ' + price + ' (' + b.date + ')');
-			if(setting_debug == '1') console.log('Keyname: ' + getItemKeyName(itemname, b.date));
+			price = getItemPrice(itemname, betdate);
+			if(setting_debug == '1') console.log(itemname + ': ' + price + ' (' + betdate + ')');
+			if(setting_debug == '1') console.log('Keyname: ' + getItemKeyName(itemname, betdate));
 
 			value -= price;
 			overallLost += price;
