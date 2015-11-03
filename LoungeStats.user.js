@@ -6,7 +6,7 @@
 // @include     http://dota2lounge.com/myprofile
 // @include     https://csgolounge.com/myprofile
 // @include     https://dota2lounge.com/myprofile
-// @version     0.3.9
+// @version     0.4.0
 // @require     http://loungestats.kinsi.me/dl/jquery-2.1.1.min.js
 // @require    	http://loungestats.kinsi.me/dl/jquery.jqplot.min.js
 // @require     http://loungestats.kinsi.me/dl/jqplot.cursor.min.js
@@ -37,7 +37,7 @@ var bets = {};
 var version = GM_info.script.version;
 var newVersion = (GM_getValue('LoungeStats_lastversion') != version);
 
-if(localStorage['LoungeStats_lastversion'] && version == '0.3.8' && confirm("Thanks for updating to LoungeStats 0.3.8. In this update i switched the way i save settings / cache items to be more stable. Due do this, i will convert over the values from the old method to the new one now. Your browser might lag for up to a minute, depending on your computer and bet history size (This only has to be done once, click OK to start, or Cancel to not convert over the data and re-load all prices)")) {
+if(localStorage['LoungeStats_lastversion'] && version == '0.4.0' && confirm("Thanks for updating to LoungeStats 0.4.0. In version 0.3.8 i switched the way i save settings / cache items to be more stable. Due do this, i will convert over the values from the old method to the new one now. Your browser might lag for up to a minute, depending on your computer and bet history size (This only has to be done once, click OK to start, or Cancel to not convert over the data and re-load all prices (Recommended if you are on a low-end computer and want to avoid issues!)")) {
 	for(var lSKey in localStorage) {
 		if(lSKey.indexOf("LoungeStats") !== 0) continue;
 
@@ -736,13 +736,19 @@ function convertUsd(usd) {
 }
 
 function convToUsdBySym(f, str){
+	console.log(str);
+	console.log(str.indexOf('\\u20ac'));
+	console.log(str.toString().indexOf('\\u20ac'));
+
+
+
 	if(str.indexOf('R$') > -1) {
 		f *= curr_usd_brd;
-	}else if(str.indexOf('\u00a3') > -1) {
+	}else if(str.indexOf('\\u00a3') > -1) {
 		f *= curr_usd_gbp;
-	}else if(str.indexOf('&#8364;') > -1) {
+	}else if(str.indexOf('\\u20ac') > -1) {
 		f *= curr_usd_eur;
-	}else if(str.indexOf('p\u0443\u0431') > -1) {
+	}else if(str.indexOf('p\\u0443\\u0431') > -1) {
 		f *= curr_usd_rub;
 	}else if(str.indexOf('$') > -1) {
 		//hi
@@ -761,7 +767,7 @@ function cacheItem(itemname, callback, exactfallback) {
 			if(response.status == 200) {
 				var responseParsed = JSON.parse(response.responseText);
 				if(responseParsed.success === true && 'median_price' in responseParsed) {
-					var price = parseFloat(responseParsed['median_price'].replace('$','').replace('\u00a3','').replace('&#8364;','').replace('p\u0443\u0431..','').replace('R','').replace(',', '.').trim());
+					var price = parseFloat(responseParsed['median_price'].replace('$','').replace('\u00a3','').replace('\u20ac','').replace(' p\u0443\u0431..','').replace('R','').replace(',', '.').trim());
 					if(setting_debug == '1') console.log('Cached item price of ' + itemname + ' | Price: ' + price);
 					if(setting_debug == '1') console.log(exactfallback);
 					for(loungetime in exactfallback){
@@ -773,7 +779,7 @@ function cacheItem(itemname, callback, exactfallback) {
 					return;
 				}// No median price seems existant, attempt to use the lowest price
 				else if(responseParsed.success == true && 'lowest_price' in responseParsed) {
-					var price = parseFloat(responseParsed['lowest_price'].replace('$','').replace('\u00a3','').replace('&#8364;','').replace(' p\u0443u0431..','').replace('R','').replace(',', '.').trim());
+					var price = parseFloat(responseParsed['lowest_price'].replace('$','').replace('\u00a3','').replace('\u20ac','').replace(' p\u0443u0431..','').replace('R','').replace(',', '.').trim());
 					convToUsdBySym(price, responseParsed['lowest_price']);
 
 					if(setting_debug == '1') console.log('Cached item price of ' + itemname + ' | Price: ' + price);
@@ -834,6 +840,7 @@ function cacheItemsExact(itemname, loungetimes, callback) {
 								if((datadate >= betdate && (prev === null || prev < betdate)) || i == arr.length-1) {
 									if(inexact && !inexactAlert) {
 										inexactAlert = true;
+										alert(curr[0]);
 										alert('For your Information. Since you are using the exact method you want exact prices. Because of this, i am alerting you that i cant provide exact prices for you sadly, the reason being that i dont know how to deal with your local currency. The best you can do is to select US$ as your currency, this will display values in your local currency. The alternative is to use the fast method because i can tell steam which currency i want the prices in for that, which i cant for the price history sadly. I\'m sorry for that');
 									}
 
