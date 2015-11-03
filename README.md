@@ -10,4 +10,4 @@ For more than a year i have been happily supporting, updating, and fixing bugs i
 * I commited every version that i have kept in my local history, hopefully that helps (a bit)
 
 # Cool, i love LoungeStats, how can i help?
-Are you good with JavaScript and especially Userscripts? Fork the repo, fix stuff, and send a PR my way. While my code is not the best in this case (*shit* to be exact), i kindly ask you to write *yours* cleanly, and leave comments.
+Are you good with JavaScript and especially Userscripts? Fork the repo, fix stuff, and send a PR my way. While my code is not the best in this case (*shit* to be exact), i kindly ask you to write *yours* cleanly, and leave comments. As mentioned before hardly anything is commented, so when you fight your way trough, please leave comments when you got how stuff works!
