@@ -6,7 +6,7 @@
 // @include     http://dota2lounge.com/myprofile
 // @include     https://csgolounge.com/myprofile
 // @include     https://dota2lounge.com/myprofile
-// @version     0.3.8
+// @version     0.3.9
 // @require     http://loungestats.kinsi.me/dl/jquery-2.1.1.min.js
 // @require    	http://loungestats.kinsi.me/dl/jquery.jqplot.min.js
 // @require     http://loungestats.kinsi.me/dl/jqplot.cursor.min.js
@@ -26,6 +26,10 @@
 // You are not allowed to sell the whole, or parts of this script
 // Copyright belongs to "Kinsi" (user Kinsi55 on reddit, /id/kinsi on steam)
 
+
+// This code is shit, i get nightmares when i have to maintain it
+// It please dont try to understand it
+
 var app_id = (window.location.hostname == 'dota2lounge.com' ? '570' : '730');
 var cleanparse = false;
 var inexactAlert = false;
@@ -33,7 +37,7 @@ var bets = {};
 var version = GM_info.script.version;
 var newVersion = (GM_getValue('LoungeStats_lastversion') != version);
 
-if(localStorage['LoungeStats_lastversion'] && version == '0.3.8' && confirm("Thanks for updating to LoungeStats 0.3.8. In this update i switched the way i save settings / cache items to be more stable. Due do this, i will convert over the values from the old method to the new one now. Your browser might lag for up to a minute, depending on your computer and bet history size (This only has to be done once, click OK to start, or Cancel to not convert over the data)")) {
+if(localStorage['LoungeStats_lastversion'] && version == '0.3.8' && confirm("Thanks for updating to LoungeStats 0.3.8. In this update i switched the way i save settings / cache items to be more stable. Due do this, i will convert over the values from the old method to the new one now. Your browser might lag for up to a minute, depending on your computer and bet history size (This only has to be done once, click OK to start, or Cancel to not convert over the data and re-load all prices)")) {
 	for(var lSKey in localStorage) {
 		if(lSKey.indexOf("LoungeStats") !== 0) continue;
 
@@ -98,10 +102,10 @@ function setCurrencySymbol(){
 }
 
 //Well, since you cant force the market price (exact algo) this has to do the trick.
-var curr_usd_eur = 1.127095;
-var curr_usd_gbp = 1.521845;
-var curr_usd_rub = 0.019932;
-var curr_usd_brd = 0.328392;
+var curr_usd_eur = 1.091355;
+var curr_usd_gbp = 1.55791;
+var curr_usd_rub = 0.016831;
+var curr_usd_brd = 0.29671;
 
 //http://stackoverflow.com/a/6700/3526458
 Object.size = function(obj) {
@@ -166,6 +170,8 @@ function parseLoungeBetHistory(html, callback) {
 
 			var betItems = $(bet).next().find('div > div.name > b:first-child');
 			var wonItems = $(bet).next().next().find('div > div.name > b:first-child');
+
+			if (wonItems.length && wonItems.length > 0) tocache.matchoutcome = 'won'; // http://redd.it/3edctm
 
 			//Iterate trough all the items and add them to an array
 			$(betItems).each(function(i, item) {
@@ -656,7 +662,7 @@ function generateStatsPage() {
 					alert("Sorry, uploading the image to imgur failed :(\n\nTry it again in a second and doublecheck that imgur is up!");
 				}
 			});
-		},4000)
+		}, 4000);
 	})
 }
 
@@ -730,15 +736,15 @@ function convertUsd(usd) {
 }
 
 function convToUsdBySym(f, str){
-	if(str.indexOf('&#82;&#36;') > -1) {
+	if(str.indexOf('R$') > -1) {
 		f *= curr_usd_brd;
-	}else if(str.indexOf('&#163;') > -1) {
+	}else if(str.indexOf('\u00a3') > -1) {
 		f *= curr_usd_gbp;
 	}else if(str.indexOf('&#8364;') > -1) {
 		f *= curr_usd_eur;
-	}else if(str.indexOf('p&#1091;&#1073;') > -1) {
+	}else if(str.indexOf('p\u0443\u0431') > -1) {
 		f *= curr_usd_rub;
-	}else if(str.indexOf('&#36;') > -1) {
+	}else if(str.indexOf('$') > -1) {
 		//hi
 	} else { return false }
 	return true;
@@ -755,7 +761,7 @@ function cacheItem(itemname, callback, exactfallback) {
 			if(response.status == 200) {
 				var responseParsed = JSON.parse(response.responseText);
 				if(responseParsed.success === true && 'median_price' in responseParsed) {
-					var price = parseFloat(responseParsed['median_price'].replace('&#36;','').replace('&#163;','').replace('&#8364;','').replace('p&#1091;&#1073;.','').replace('&#82;','').replace(',', '.').trim());
+					var price = parseFloat(responseParsed['median_price'].replace('$','').replace('\u00a3','').replace('&#8364;','').replace('p\u0443\u0431..','').replace('R','').replace(',', '.').trim());
 					if(setting_debug == '1') console.log('Cached item price of ' + itemname + ' | Price: ' + price);
 					if(setting_debug == '1') console.log(exactfallback);
 					for(loungetime in exactfallback){
@@ -767,7 +773,7 @@ function cacheItem(itemname, callback, exactfallback) {
 					return;
 				}// No median price seems existant, attempt to use the lowest price
 				else if(responseParsed.success == true && 'lowest_price' in responseParsed) {
-					var price = parseFloat(responseParsed['lowest_price'].replace('&#36;','').replace('&#163;','').replace('&#8364;','').replace('p&#1091;&#1073;.','').replace('&#82;','').replace(',', '.').trim());
+					var price = parseFloat(responseParsed['lowest_price'].replace('$','').replace('\u00a3','').replace('&#8364;','').replace(' p\u0443u0431..','').replace('R','').replace(',', '.').trim());
 					convToUsdBySym(price, responseParsed['lowest_price']);
 
 					if(setting_debug == '1') console.log('Cached item price of ' + itemname + ' | Price: ' + price);
