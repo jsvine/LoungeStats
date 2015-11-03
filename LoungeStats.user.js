@@ -4,7 +4,7 @@
 // @author			Kinsi http://reddit.com/u/kinsi55
 // @include			http://csgolounge.com/myprofile
 // @include     http://dota2lounge.com/myprofile
-// @version			0.2.0
+// @version			0.2.1
 // @require			http://bibabot.de/stuff/jquery-2.1.1.min.js
 // @require			http://bibabot.de/stuff/jquery.jqplot.min.js
 // @require			http://bibabot.de/stuff/jqplot.cursor.min.js
@@ -23,6 +23,7 @@
 var cleanparse = false;
 var inexactAlert = false;
 var bets = [];
+var version = "0.2.1B";
 
 var setting_method = localStorage['LoungeStats_setting_method'];
 var setting_currency = localStorage['LoungeStats_setting_currency'];
@@ -220,6 +221,7 @@ function generateStatsPage() {
 
 		var value = 0.0;
 		var betValue = 0.0;
+
 		if(b['matchoutcome'] == 'won' || b['matchoutcome'] == 'lost') {
 			if(last != b['matchoutcome']) {
 				winstreaktemp = 0;
@@ -330,6 +332,7 @@ function generateStatsPage() {
 
 var activefast = 0;
 var fastindex = 0;
+var fastLooping = false;
 
 function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback, progresscallback, exact) {
 	if(!arrayoffset) arrayoffset = 0;
@@ -340,6 +343,8 @@ function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback,
 		return true;
 	}
 	if(exact) {
+		//var betdate = new Date(Date.parse(loungetime.replace(/-/g,' ') + ' +0'));
+
 		cacheItemExact(item[0], item[1], function(success) {
 			if(success) {
 				progresscallback(arrayoffset+1);
@@ -352,16 +357,17 @@ function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback,
 			}
 		});
 	} else {
-		while(activefast < 10) {
-			activefast++;
-			if(arrayoffset == 0) fastindex = 0;
-			fastindex++;
+	if(arrayoffset == 0) fastindex = 0;
+		fastLooping = true;
+		while(activefast < 10 && fastindex < itemarraykeylist.length) {
+			item = itemarray[itemarraykeylist[fastindex]];
+			activefast++; fastindex++;
 			cacheItem(item[0], function(success) {
 				if(success) {
 					activefast--;
-					progresscallback(fastindex-activefast);
-					getAllPrices(itemarray, itemarraykeylist, delay, fastindex, callback, progresscallback, exact);
-					if(setting_debug == 1) console.log(donerequests);
+					progresscallback(fastindex-activefast);//this actually is right, wat.
+					if(!fastLooping) getAllPrices(itemarray, itemarraykeylist, delay, fastindex, callback, progresscallback, exact);
+					if(setting_debug == 1) console.log(fastindex-activefast);
 				}
 				else {
 					fastindex = itemarraykeylist.length +1;
@@ -370,6 +376,7 @@ function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback,
 				}
 			}, item[1]);
 		}
+		fastLooping = false;
 	}
 }
 
@@ -549,7 +556,19 @@ function loadStats(clean) {
 		return;
 	}
 	cleanparse = clean;
-	$('#ajaxCont').html('<a id="loungestats_settingsbutton" class="button">LoungeStats Settings</a><a id="loungestats_reloadbutton" class="button" style="display: none;">Refresh cache</a><a class="button" target="_blank" href="http://steamcommunity.com/tradeoffer/new/?partner=33309635&token=H0lCbkY3">Donate to Loungestats ♥</a><a class="button" target="_blank" href="http://reddit.com/r/LoungeStats">Report a bug</a><br><hr><br><div id="loungestats_datacontainer"><img src="../img/load.gif" id="loading" style="margin: 0.75em 2%"></div>');
+	$('#ajaxCont').html('<a id="loungestats_settingsbutton" class="button">LoungeStats Settings</a> \
+											<a id="loungestats_reloadbutton" class="button" style="display: none;">Refresh cache</a> \
+											<a class="button" target="_blank" href="http://steamcommunity.com/tradeoffer/new/?partner=33309635&token=H0lCbkY3">Donate ♥</a> \
+											<a class="button" target="_blank" href="http://reddit.com/r/LoungeStats">Subreddit</a> \
+											<br><hr><br> \
+											<div id="loungestats_datacontainer"> \
+												<img src="../img/load.gif" id="loading" style="margin: 0.75em 2%"> \
+											</div>');
+	if(localStorage['lastversion'] != version){
+		localStorage['lastversion'] = version
+		$('#ajaxCont').prepend('<div id="loungestats_updateinfo" class="bpheader">LoungeStats was updated to ' + version + '!<br/>Please check <a href="http://reddit.com/r/loungestats">the subreddit</a> to see what changes were made</div>');
+	}
+
 	$('#loungestats_reloadbutton').click(function() {loadStats(true)});
 	$('#loungestats_settingsbutton').click(function() {$('#loungestats_overlay').fadeIn(500)}).removeAttr('id');
 	loading = true;
@@ -610,24 +629,31 @@ function saveSettings()
 
 //I know that gm scripts are called on the documentReady, i like having it like this nevertheless.
 function init() {
-	$('#main section:nth-child(2) div:nth-child(1)').append('<a id="loungestats_tabbutton" class="button">Stats</a>');
+	$('section:nth-child(2) div:nth-child(1)').append('<a id="loungestats_tabbutton" class="button">Stats</a>');
 	GM_addStyle(".jqplot-highlighter-tooltip {background-color: #393938; border: 1px solid gray; padding: 5px; color: #ccc} \
 							 .jqplot-xaxis {margin-top: 5px; font-size: 12px} \
 							 .jqplot-yaxis {margin-right: 5px; width: 55px; font-size: 12px} \
 							 .jqplot-yaxis-tick {text-align: right; width: 100%} \
 							 #loungestats_overlay {z-index: 9000; display: none; top: 0px; left: 0px; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.4); position: fixed} \
 							 #loungestats_settings_title {text-align: center; font-size: 12px; height: 40px; border: 2px solid #DDD; border-top: none; background-color: #EEE; width: 100%; margin-top: -10px; -webkit-border-radius: 0 0 5px 5px; border-radius: 0 0 5px 5px; padding: 10px 5px 0 5px; -moz-box-sizing: border-box; -webkit-box-sizing: border-box; box-sizing: border-box;} \
-							 #loungestats_settingswindow {font-size: 13px; z-index: 9001; padding: 10px; -moz-box-sizing: border-box; -webkit-box-sizing: border-box; box-sizing: border-box; position: relative; background-color: white; left: 50%; top: 50%; width: 300px; margin-left: -151px; height: 400px; margin-top: -201px; -webkit-border-radius: 5px; border-radius: 5px; -webkit-box-shadow: 0 0 10px -5px #000; box-shadow: 0 0 10px -5px #000; border: 1px solid gray} \
-							 #loungestats_settingswindow select{margin: 5px 0; width: 100%; height: 22px !important} \
-							 #loungestats_fullscreenbutton{position: absolute; right: 29px; top: -5px; z-index: 9001; height: 14px;z-index: 8998} \
-							 #loungestats_fullscreenbutton.fullsc{position: fixed;margin: 0;right: 34px} \
+							 #loungestats_settingswindow {font-size: 13px; z-index: 9001; padding: 10px; -moz-box-sizing: border-box; -webkit-box-sizing: border-box; box-sizing: border-box; position: relative; background-color: white; left: 50%; top: 50%; width: 300px; margin-left: -151px; height: 400px; margin-top: -201px; -webkit-border-radius: 5px; border-radius: 5px; -webkit-box-shadow: 0 0 10px -5px #000; box-shadow: 0 0 10px -5px #000; border: 1px solid gray; overflow: hidden;-webkit-transition: all 250ms ease-in-out;-moz-transition: all 250ms ease-in-out;-ms-transition: all 250ms ease-in-out;-o-transition: all 250ms ease-in-out;transition: all 250ms ease-in-out;} \
+							 #loungestats_settingswindow.accounts {width: 500px; margin-left: -251px;} \
+							 #loungestats_settingswindow select, #loungestats_settingswindow input{margin: 5px 0; width: 100%; height: 22px !important} \
+							 #loungestats_fullscreenbutton{margin-right: 29px !important; margin-top: -5px !important; height: 14px; z-index: 8998; position: relative;} \
+							 #loungestats_fullscreenbutton.fullsc{position: fixed;margin: 0 !important;right: 34px; top: -5px;} \
 							 #pricehistory.fullsc{background-color: #ddd;height: 100% !important;left: 0;margin: 0;position: fixed !important;top: 0;width: 100%;} \
-							 #loungestats_datacontainer{position: relative} \
-							 .jqplot-highlighter-tooltip{z-index: 8999;}");
+							 #loungestats_settings_leftpanel{width: 278px; float: left;} \
+							 #loungestats_settings_rightpanel{width: 188px; float: left; margin-left: 8px;} \
+							 #loungestats_settings_panelcontainer{width: 500px;} \
+							 #loungestats_datacontainer{position: relative;clear: both;} \
+							 .jqplot-highlighter-tooltip{z-index: 8999;} \
+							 #loungestats_updateinfo{text-align: center;} \
+							 #loungestats_mergepicks{border:2px solid #ccc; width:100%; height: 100px; overflow-y: scroll; height: 258px;} \
+							 #loungestats_mergepicks input{height: 20px !important;vertical-align: middle;}");
 
 	$('body').append('<div id="loungestats_overlay"> \
 		<div id="loungestats_settingswindow"> \
-			<div id="loungestats_settings_title">Loungestats 0.2.0B Settings | by <a href="http://reddit.com/u/kinsi55">/u/kinsi55</a><br><br></div> \
+			<div id="loungestats_settings_title">Loungestats '+version+' Settings | by <a href="http://reddit.com/u/kinsi55">/u/kinsi55</a><br><br></div> \
 			Pricing accuracy <a class="info">?<p class="infobox"><br>Fastest: Use current item prices for all bets<br><br>Most accurate: Use item prices at approximately the time of the bet, as little delay as possible between requests<br><br>Most accurate & safest: Same as Most accurate, but with a bit more delay between requests</p></a>:<br> \
 			<select id="loungestats_method"> \
 				<option value="0">Fastest</option> \
