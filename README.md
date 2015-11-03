@@ -2,7 +2,7 @@
 Profitgraph for CSGOLounge and DOTA2Lounge
 
 # What is this?
-For more than a year i have been happily supporting, updating, and fixing bugs in LoungeStats, a Profit graph for CSGOLounge.com and DOTA2Lounge.com. While those bugs often where not caused by me, but rather by the Website being inconsitent as *!")(§", i still tried my best to keep up the support. You can see a history of that on the Userscript's subreddit: http://reddit.com/r/LoungeStats. Sadly, i do not have the time and dedication for that anymore though, and since i do not want this extension that has helped hundred thousands's of people my hope is that the community can help me with my mission.
+For more than a year i have been happily supporting, updating, and fixing bugs in LoungeStats, a Profit graph for CSGOLounge.com and DOTA2Lounge.com. While those bugs often where not caused by me, but rather by the Website being inconsitent as *!")(§", i still tried my best to keep up the support. You can see a history of that on the Userscript's subreddit: http://reddit.com/r/LoungeStats. Sadly, i do not have the time and dedication for that anymore though, and since i do not want this extension that has helped hundred thousands's of people to die my hope is that the community can help me with my mission.
 
 # Stuff as of initial commit:
 * The code is mostly uncommented and undocumented
