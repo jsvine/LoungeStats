@@ -4,7 +4,7 @@
 // @author			Kinsi http://reddit.com/u/kinsi55
 // @include			http://csgolounge.com/myprofile
 // @include     http://dota2lounge.com/myprofile
-// @version			0.1.9
+// @version			0.2.0
 // @require			http://bibabot.de/stuff/jquery-2.1.1.min.js
 // @require			http://bibabot.de/stuff/jquery.jqplot.min.js
 // @require			http://bibabot.de/stuff/jqplot.cursor.min.js
@@ -21,6 +21,7 @@
 // Copyright belongs to "Kinsi" (user Kinsi55 on reddit, /id/kinsi on steam)
 
 var cleanparse = false;
+var inexactAlert = false;
 var bets = [];
 
 var setting_method = localStorage['LoungeStats_setting_method'];
@@ -28,7 +29,8 @@ var setting_currency = localStorage['LoungeStats_setting_currency'];
 var setting_bvalue = localStorage['LoungeStats_setting_bvalue'];
 var setting_xaxis = localStorage['LoungeStats_setting_xaxis'];
 var setting_debug = localStorage['LoungeStats_setting_debug'];
-var loading = false; 
+var loading = false;
+var user_steam64 = $('#profile .full:last-child input').val().split('=').pop();
 
 var currencysymbol = '$';
 
@@ -43,9 +45,10 @@ else if(setting_currency == '5') {
 }
 
 //Well, since you cant force the market price (exact algo) this has to do the trick.
-var curr_usd_eur = 1.339;
-var curr_usd_gbp = 1.671795;
-var curr_usd_rub = 0.027689;
+var curr_usd_eur = 1.2937;
+var curr_usd_gbp = 1.63336;
+var curr_usd_rub = 0.027058;
+var curr_usd_brd = 0.445971;
 
 var app_id = window.location.hostname == 'dota2lounge.com' ? '570' : '730';
 
@@ -87,12 +90,14 @@ function parseLoungeBetHistory(html, callback) {
 	var doommeedd = $.parseHTML(html);
 	var cacheWeapons = {}; bets = []; var donerequests = 0;
 
-	var nomatchcache = $('#profile .full:last-child input').val().split('=').pop() != localStorage['LoungeStats_cachedid'];
+	var nomatchcache = user_steam64 != localStorage['LoungeStats_cachedid'];
 
 	// Preparse, get all matches, all overal needed weapons and arrify them
+	//var arrayitemlength = $(doommeedd).find('tr:nth-child(3n+1)').length-1;
+
 	$($(doommeedd).find('tr:nth-child(3n+1)').get().reverse()).each(function(i, bet) {
-		i=$(doommeedd).find('tr:nth-child(3n+1)').length-i-1;
-		var betid = $(bet).find('td a')[2].href.split('=').pop();
+		//i=arrayitemlength-i;
+		var betid = bet.children[2].children[0].href.split('=').pop();
 
 		if(setting_debug == 1) console.log('Parsing match #' + betid);
 		if(localStorage['LoungeStats_betcache_'+betid] && !cleanparse && !nomatchcache) {
@@ -111,49 +116,49 @@ function parseLoungeBetHistory(html, callback) {
 			bets.push(betid);
 		} else {
 			//Match wasnt cached, parse & cache...
-			var date = $(bet).find('td:last-child').html();
-			var matchoutcome = $(bet).find('td:nth-child(2) span').attr('class');
+			var date = bet.children[6].textContent;
+			var matchoutcome = bet.children[1].children[0].classList[0];
 			var tocache = {'date': date, 'matchoutcome': matchoutcome, 'items': {'bet':[], 'won':[]}};
 
-			tocache['teams'] = [$(bet).find('td:nth-child(3) a').html().trim(), $(bet).find('td:nth-child(5) a').html().trim()];
-
+			tocache['teams'] = [bet.children[2].children[0].textContent, bet.children[4].children[0].textContent];
 			//tricky tricky, if the team you bet on is the second option this will take the second item out of the teams array and set the "bet" value to it, otherwise the first.
-			tocache['winner'] = tocache['teams'][($(bet).find('td:nth-child(5)').attr('style') == 'font-weight:bold')];
+			tocache['winner'] = tocache['teams'][(bet.children[4].style["fontWeight"] == 'font-weight:bold')];
+			//var betItems = $(bet).find('tr:nth-child('+(i*3+2)+') td:nth-child(2) div.name b'); ||much slower.
+			var betItems = $(bet).next().find("div.item > div.name > b");
 
-			var betItems = $(doommeedd).find('tr:nth-child('+(i*3+2)+') td:nth-child(2) div.name b');
-			var wonItems = $(doommeedd).find('tr:nth-child('+(i*3+3)+') td:nth-child(2) div.name b');
-
+			//var wonItems = $(doommeedd).find('tr:nth-child('+(i*3+3)+') td:nth-child(2) div.name b'); ||366x slower
+			var wonItems = $(bet).next().next().find("div.item > div.name > b:first-child");
 			//Iterate trough all the items and add them to an array
 			$(betItems).each(function(i, item) {
-				var itemname = $(item).text().trim();
+				var itemname = item.textContent.trim();
 				var localKeyName = getItemKeyName(itemname, date);
 				tocache['items']['bet'].push(itemname);
 
 				if(cleanparse || (!cacheWeapons[localKeyName] && !getItemPrice(itemname, date))) {
 					//Price of an item is needed thats not cached yet, add it to cache que
-					if(setting_debug == 1) console.log('Added ' + itemname + ' To cache que...');
+					if(setting_debug == 1) console.log('Added ' + itemname + ' To cache que(B)...');
 					cacheWeapons[localKeyName] = [itemname, date];
 				}
 			});
 			$(wonItems).each(function(i, item) {
-				var itemname = $(item).text().trim();
+				var itemname = item.textContent.trim();
 				var localKeyName = getItemKeyName(itemname, date);
 				tocache['items']['won'].push(itemname);
 
 				if(cleanparse || (!cacheWeapons[localKeyName] && !getItemPrice(itemname, date))) {
 					//Price of an item is needed thats not cached yet, add it to cache que
-					if(setting_debug == 1) console.log('Added ' + itemname + ' To cache que...');
+					if(setting_debug == 1) console.log('Added ' + itemname + ' To cache que(W)...');
 					cacheWeapons[localKeyName] = [itemname, date];
 				}
 			});
-
+			console.log("g");
 			localStorage['LoungeStats_betcache_' + betid] = JSON.stringify(tocache);
 			bets.push(betid);
 		}
 	});
 
 	//Remember which user the bets were cached for
-	localStorage['LoungeStats_cachedid'] = $('#profile .full:last-child input').val().split("=").pop();
+	localStorage['LoungeStats_cachedid'] = user_steam64;
 
 	if(setting_debug == 1) console.log('cached weaps:'); console.log(cacheWeapons);
 
@@ -169,6 +174,7 @@ function parseLoungeBetHistory(html, callback) {
 				callback(true);
 			} else {
 				$('#loungestats_datacontainer').html('Could not connect to steam communitymarket API, try again later...');
+				loading = false;
 			}
 		}, function(prog) {
 			$('#loungestats_loadprogress').val(prog);
@@ -211,7 +217,7 @@ function generateStatsPage() {
 	for(var i in bets) {
 		var betid = bets[i];
 		var b = JSON.parse(localStorage['LoungeStats_betcache_' + betid]);
-		
+
 		var value = 0.0;
 		var betValue = 0.0;
 		if(b['matchoutcome'] == 'won' || b['matchoutcome'] == 'lost') {
@@ -264,13 +270,13 @@ function generateStatsPage() {
 			}
 		}
 		if(setting_debug == 1) console.log('node(' + b['date'] + ')->' + overallValue);
-		
+
 		chartData.push([setting_xaxis == 0 ? b['date'] : i, parseFloat(overallValue.toFixed(2)), betValue, value, b['teams'].join(' vs. ')]);
 		if(setting_bvalue == 1) {
 			betData.push([setting_xaxis == 0 ? b['date'] : i, betValue, b['teams'].join(" vs. ")]);
 		}
 	}
-	
+
 	//generate DOM content
 	$('#loungestats_datacontainer').empty();
 	$('#loungestats_datacontainer').append('<a id="loungestats_fullscreenbutton" class="button">Toggle Fullscreen</a><div id="pricehistory" style="position: relative; height: 400px; clear: both;" class="jqplot-target"></div>');
@@ -300,7 +306,7 @@ function generateStatsPage() {
 	$("#pricehistory").dblclick(function() {plot_zomx(plot, null, null)});
 
 	$('#loungestats_fullscreenbutton').click(function() {toggleFullscreen(plot)});
-	
+
 	$(window).on('resize', function(event, ui) {plot.replot();});
 
 	$('#loungestats_datacontainer').append('<hr>Overall value of items won: ' + overallWon.toFixed(2) + ' ' + currencysymbol);
@@ -311,7 +317,7 @@ function generateStatsPage() {
 	$('#loungestats_datacontainer').append('<br>Highest loss: ' + biggestloss.toFixed(2) + ' ' + currencysymbol + '<a href="/match?m=' + biggestlossid + '"> (Match link)</a>');
 	$('#loungestats_datacontainer').append('<br>Longest losing streak: ' + losestreaklast + '<a id="loungestats_zoonon_lls" href="javascript:void(0)"> (Show on plot)</a>');
 	$('#loungestats_datacontainer').append('<br>Longest winning streak: ' + winstreaklast + '<a id="loungestats_zoonon_lws" href="javascript:void(0)"> (Show on plot)</a>');
-	
+
 	$('#loungestats_zoonon_lws').click(function() {
 		plot_zomx(plot,chartData[winstreakstart][0],chartData[winstreakstart+winstreaklast][0]);
 	}).removeAttr('id');
@@ -328,7 +334,7 @@ var fastindex = 0;
 function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback, progresscallback, exact) {
 	if(!arrayoffset) arrayoffset = 0;
 	var item = itemarray[itemarraykeylist[arrayoffset]];
-	console.log(activefast);
+
 	if(!item) {
 		if(activefast == 0) callback(true)
 		return true;
@@ -394,8 +400,10 @@ function cacheItem(itemname, callback, exactfallback) {
 					}
 					else if(responseParsed['lowest_price'].indexOf('&#8364;') > -1){
 						price *= curr_usd_eur;
-					} else {
+					} else if(responseParsed['lowest_price'].indexOf('p&#1091;&#1073;') > -1){
 						price *= curr_usd_rub;
+					} else if(responseParsed['lowest_price'].indexOf('&#82;&#36;') > -1){
+						price *= curr_usd_brd;
 					}
 
 					if(setting_debug == 1) console.log('Cached item price of ' + itemname + ' | Price: ' + price);
@@ -425,6 +433,9 @@ function convertUsd(usd)
 	else if(setting_currency == '5') {
 		return usd / curr_usd_rub;
 	}
+	else if(setting_currency == '7') {
+		return usd / curr_usd_brd;
+	}
 	return usd;
 }
 
@@ -442,10 +453,11 @@ function cacheItemExact(itemname, loungetime, callback) {
 				//which i do filter out with this regex pattern
 				var rgx = /var line1=\[\[(.*)\]\]/.exec(response.responseText);
 				var curr = /var strFormatPrefix[^]*?var strFormatSuffix[^]*?;/.exec(response.responseText);
+				var inexact = false;
 
 				if(rgx) {
 					var arr = JSON.parse('[[' + rgx[1] + ']]');
-					
+
 					if(arr != null) {
 						var prev = null;
 						//and iterate trough it here if it was found
@@ -462,10 +474,18 @@ function cacheItemExact(itemname, loungetime, callback) {
 							}
 							else if(curr[0].indexOf('&#8364;') > -1) {
 								p *= curr_usd_eur;
-							} else {
+							} else if(curr[0].indexOf('p&#1091;&#1073;') > -1){
 								p *= curr_usd_rub;
-							}
+							} else if(curr[0].indexOf('&#82;&#36;') > -1){
+								p *= curr_usd_brd;
+							} else { inexact = true }
+
+
 							if(datadate >= betdate && (prev == null || prev < betdate)) {
+								if(inexact && !inexactAlert) {
+									inexactAlert = true;
+									alert("For your Information. Since you are using the exact method you want exact prices. Because of this, i am alerting you that i cant provide exact prices for you sadly, the reason being that i dont know how to deal with your local currency. The best you can do is to select US$ as your currency, this will display values in your local currency. The alternative is to use the fast method because i can tell steam which currency i want the prices in for that, which i cant for the price history sadly. I'm sorry for that");
+								}
 								if(setting_debug == 1) console.log('Parsed: ' + datadate + ' Requested: ' + loungetime)
 								localStorage[localKeyName] = p;
 								callback(true);
@@ -481,7 +501,7 @@ function cacheItemExact(itemname, loungetime, callback) {
 				}
 			}
 			//otherwise attempt to use the inexact price instead of the exact price since i cant do anything else really
-			if(response.responseText.indexOf('There is no price history available for this item yet.') > -1) {
+			if((response.responseText.indexOf('There is no price history available for this item yet.') > -1) || response.responseText.indexOf('There are no listings for this item.') > -1) {
 				if(setting_debug == 1) console.log('Falling back to unexact price...');
 				cacheItem(itemname, callback, loungetime);
 				return;
@@ -568,7 +588,7 @@ function saveSettings()
 	localStorage['LoungeStats_setting_bvalue'] = $('#loungestats_bgraph').val(); setting_bvalue = localStorage['LoungeStats_setting_bvalue'];
 	localStorage['LoungeStats_setting_xaxis'] = $('#loungestats_xaxis').val(); setting_xaxis = localStorage['LoungeStats_setting_xaxis'];
 	localStorage['LoungeStats_setting_debug'] = $('#loungestats_debug').val(); setting_debug = localStorage['LoungeStats_setting_debug'];
-	
+
 	if(setting_currency == '3') {
 		currencysymbol = '€';
 	}
@@ -578,8 +598,11 @@ function saveSettings()
 	else if(setting_currency == '5') {
 		currencysymbol = 'р';
 	}
-	else {
+	else if(setting_currency == '1') {
 		currencysymbol = '$';
+	}
+	else {
+		currencysymbol = 'R$';
 	}
 	$('#loungestats_overlay').fadeOut(500);
 	loadStats();
@@ -601,10 +624,10 @@ function init() {
 							 #pricehistory.fullsc{background-color: #ddd;height: 100% !important;left: 0;margin: 0;position: fixed !important;top: 0;width: 100%;} \
 							 #loungestats_datacontainer{position: relative} \
 							 .jqplot-highlighter-tooltip{z-index: 8999;}");
-	
+
 	$('body').append('<div id="loungestats_overlay"> \
 		<div id="loungestats_settingswindow"> \
-			<div id="loungestats_settings_title">Loungestats 0.1.9B Settings | by <a href="http://reddit.com/u/kinsi55">/u/kinsi55</a><br><br></div> \
+			<div id="loungestats_settings_title">Loungestats 0.2.0B Settings | by <a href="http://reddit.com/u/kinsi55">/u/kinsi55</a><br><br></div> \
 			Pricing accuracy <a class="info">?<p class="infobox"><br>Fastest: Use current item prices for all bets<br><br>Most accurate: Use item prices at approximately the time of the bet, as little delay as possible between requests<br><br>Most accurate & safest: Same as Most accurate, but with a bit more delay between requests</p></a>:<br> \
 			<select id="loungestats_method"> \
 				<option value="0">Fastest</option> \
@@ -617,6 +640,7 @@ function init() {
 				<option value="3">Euro</option> \
 				<option value="2">Great British Pound</option> \
 				<option value="5">Rubel</option> \
+				<option value="7">Brazilian real</option> \
 			</select><br><br> \
 			Show bet value graph:<br> \
 			<select id="loungestats_bgraph"> \
