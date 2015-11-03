@@ -4,7 +4,7 @@
 // @author			Kinsi http://reddit.com/u/kinsi55
 // @include			http://csgolounge.com/myprofile
 // @include     http://dota2lounge.com/myprofile
-// @version			0.3.1
+// @version			0.3.2
 // @require			http://bibabot.de/stuff/jquery-2.1.1.min.js
 // @require			http://bibabot.de/stuff/jquery.jqplot.min.js
 // @require			http://bibabot.de/stuff/jqplot.cursor.min.js
@@ -25,7 +25,7 @@ var app_id = window.location.hostname == 'dota2lounge.com' ? '570' : '730';
 var cleanparse = false;
 var inexactAlert = false;
 var bets = {};
-var version = '0.3.1RC';
+var version = '0.3.2RC';
 var newVersion = (localStorage['LoungeStats_lastversion'] != version);
 
 var setting_method = localStorage['LoungeStats_setting_method'];
@@ -188,7 +188,6 @@ function parseLoungeBetHistory(html, callback) {
 	}
 
 	for(var bet in bets) {
-		console.log(bet);
 		var dabet = bets[bet];
 
 		var itemarray = dabet.items.bet.concat(dabet.items.won).concat(dabet.items.lost);
@@ -197,6 +196,12 @@ function parseLoungeBetHistory(html, callback) {
 			var itemname = itemarray[i];
 			var date = dabet.date;
 			//var localKeyName = getItemKeyName(itemname, date);
+			var x = new Date(Date.parse(date.replace(/-/g,' ') + ' +0'));
+
+			//since between 28.11.2014 and 30.11.2014 the market crashed and the price skyrocketed, i need to fix gabens shit.
+			if(x>1417132800&&x<1417323600){
+				date="2014-11-28 00:00:00";
+			}
 
 			if(cleanparse || !getItemPrice(itemname, date)) { /*|| (!(localKeyName in cacheWeapons)*/
 				//Price of an item is needed thats not cached yet, add it to cache que
@@ -332,6 +337,7 @@ function generateStatsPage() {
 			itemname = b.items.won[item];
 			price = getItemPrice(itemname, b.date);
 			if(setting_debug == '1') console.log(itemname + ': ' + price + ' (' + b.date + ')');
+			if(setting_debug == '1') console.log('Keyname: ' + getItemKeyName(itemname, b.date));
 			value += price;
 			overallWon += price;
 		}
@@ -343,6 +349,8 @@ function generateStatsPage() {
 			itemname = b.items.lost[item];
 			price = getItemPrice(itemname, b.date);
 			if(setting_debug == '1') console.log(itemname + ': ' + price + ' (' + b.date + ')');
+			if(setting_debug == '1') console.log('Keyname: ' + getItemKeyName(itemname, b.date));
+
 			value -= price;
 			overallLost += price;
 		}
@@ -502,7 +510,7 @@ function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback,
 		if(arrayoffset === 0) fastindex = 0;
 		fastLooping = true;
 		while(activefast < 10 && fastindex < itemarraykeylist.length) {
-			item = itemarray[itemarraykeylist[fastindex]];
+			item = itemarraykeylist[fastindex];
 			activefast++; fastindex++;
 			cacheItem(item, function(success) {
 				if(success) {
@@ -516,14 +524,16 @@ function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback,
 					if(setting_method == '1') $('#loungestats_datacontainer').append('<br>If you keep getting this error try switching the parsing method to "Most exact <b>& safest</b>"');
 					callback(false);
 				}
-			}, item[1]);
+			}, itemarray[item]);
 		}
 		fastLooping = false;
 	}
 }
 
 function cacheItem(itemname, callback, exactfallback) {
-	if(setting_debug == '1') console.log('Caching item price of ' + itemname + '...');
+	if(setting_debug == '1') console.log('Caching item price of ' + itemname + '...>>>>>>>>>>>>>>>>>>>>>>>>>>>');
+	if(setting_debug == '1') console.log(getItemKeyName(itemname, ""));
+
 	GM_xmlhttpRequest({
 		method: 'GET',
 		url: 'http://steamcommunity.com/market/priceoverview/?currency=' + localStorage['LoungeStats_setting_currency'] + '&appid=' + app_id + '&market_hash_name=' + encodeURI(itemname),
@@ -533,11 +543,12 @@ function cacheItem(itemname, callback, exactfallback) {
 				if(responseParsed.success === true && 'median_price' in responseParsed) {
 					var price = parseFloat(responseParsed['median_price'].replace('&#36;','').replace('&#163;','').replace('&#8364;','').replace('p&#1091;&#1073;.','').replace('&#82;','').replace(',', '.').trim());
 					if(setting_debug == '1') console.log('Cached item price of ' + itemname + ' | Price: ' + price);
+					if(setting_debug == '1') console.log(exactfallback);
 					for(loungetime in exactfallback){
 						var localKeyName = getItemKeyName(itemname, exactfallback[loungetime]);
 						localStorage.setItem(localKeyName, price);
 					}
-
+					if(setting_debug == '1') console.log('');
 					callback(true);
 					return;
 				}// No median price seems existant, attempt to use the lowest price
@@ -554,12 +565,13 @@ function cacheItem(itemname, callback, exactfallback) {
 					}else if(responseParsed['lowest_price'].indexOf('&#36;') > -1) {
 						//hi
 					}
-
 					if(setting_debug == '1') console.log('Cached item price of ' + itemname + ' | Price: ' + price);
+
 					for(loungetime in exactfallback){
 						var localKeyName = getItemKeyName(itemname, exactfallback[loungetime]);
 						localStorage.setItem(localKeyName, price);
 					}
+					console.log('');console.log('');
 					callback(true);
 					return;
 				}// No lowest price seems existant, assume price as 0 since i cant do anything else really
@@ -567,6 +579,7 @@ function cacheItem(itemname, callback, exactfallback) {
 					console.log('Failed to load ' + itemname + ', assuming as 0');
 				}
 			}
+			if(setting_debug == '1') console.log("X.X");
 			for(loungetime in exactfallback){
 				var localKeyName = getItemKeyName(itemname, exactfallback[loungetime]);
 				localStorage.setItem(localKeyName, 0.0);
@@ -680,7 +693,7 @@ function getItemKeyName(itemname, loungetime) {
 function getItemPrice(itemname, loungetime) {
 	var localKeyName = getItemKeyName(itemname, loungetime);
 	if(localStorage[localKeyName]) {
-		if(loungetime && setting_method != '0') {
+		if(loungetime && setting_method !== '0') {
 			return convertUsd(parseFloat(localStorage[localKeyName]));
 		}
 		return parseFloat(localStorage[localKeyName]);
