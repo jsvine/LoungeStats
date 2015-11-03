@@ -4,7 +4,7 @@
 // @author			Kinsi http://reddit.com/u/kinsi55
 // @include			http://csgolounge.com/myprofile
 // @include     http://dota2lounge.com/myprofile
-// @version			0.2.3
+// @version			0.2.4
 // @require			http://bibabot.de/stuff/jquery-2.1.1.min.js
 // @require			http://bibabot.de/stuff/jquery.jqplot.min.js
 // @require			http://bibabot.de/stuff/jqplot.cursor.min.js
@@ -25,7 +25,8 @@ var app_id = window.location.hostname == 'dota2lounge.com' ? '570' : '730';
 var cleanparse = false;
 var inexactAlert = false;
 var bets = {};
-var version = "0.2.3RC";
+var version = "0.2.4RC";
+var newVersion = (localStorage['lastversion'] != version);
 
 var setting_method = localStorage['LoungeStats_setting_method'];
 var setting_currency = localStorage['LoungeStats_setting_currency'];
@@ -123,7 +124,7 @@ function parseLoungeBetHistory(html, callback) {
 
 		if(setting_debug == 1) console.log('Parsing match #' + betid);
 
-		if(!localStorage.hasOwnProperty('LoungeStats_betcache_s'+user_steam64+'_'+betid) || cleanparse) {
+		if(!localStorage.hasOwnProperty('LoungeStats_betcache_s'+user_steam64+'_'+betid) || cleanparse || newVersion) {
 			//Match wasnt cached, parse & cache...
 			var date = bet.children[6].textContent;
 			var matchoutcome = bet.children[1].children[0].classList[0];
@@ -131,12 +132,14 @@ function parseLoungeBetHistory(html, callback) {
 
 			tocache['teams'] = [bet.children[2].children[0].textContent, bet.children[4].children[0].textContent];
 			tocache['winner'] = (bet.children[4].style["fontWeight"] == 'bold')+0;
-			var betItems = $(bet).next().find("div.item > div.name > b:first-child");
 
-			var wonItems = $(bet).next().next().find("div.item > div.name > b:first-child");
+			var betItems = $(bet).next().find("div > div.name > b:first-child");
+			var wonItems = $(bet).next().next().find("div > div.name > b:first-child");
+
 			//Iterate trough all the items and add them to an array
 			$(betItems).each(function(i, item) {
 				var itemname = item.textContent.trim();
+				console.log(itemname);
 				tocache['items']['bet'].push(itemname);
 				if(matchoutcome == 'lost') {
 					tocache['items']['lost'].push(itemname);
@@ -148,6 +151,7 @@ function parseLoungeBetHistory(html, callback) {
 					tocache['items']['won'].push(itemname);
 				});
 			}
+			if(setting_debug == 1) console.log(tocache);
 
 			localStorage['LoungeStats_betcache_s'+user_steam64+'_'+betid] = JSON.stringify(tocache);
 		}
@@ -159,8 +163,6 @@ function parseLoungeBetHistory(html, callback) {
 
 	var bits = setting_beforedate.split('.');
   var d = new Date(bits[2], bits[1]-1, bits[0]).getTime();
-
-
 
 	if(!setting_domerge || setting_domerge == 0) useaccs = [user_steam64];
 
@@ -299,7 +301,7 @@ function generateStatsPage() {
 
 	for(var i in betsKeys) {
 		var b = bets[betsKeys[i]];
-		var betid = b['betid'];
+		var betid = b['matchid'];
 
 		var value = 0.0;
 		var betValue = 0.0;
@@ -437,15 +439,20 @@ function generateStatsPage() {
 
 	if(setting_xaxis == 0) {
 		$("#pricehistory").dblclick(function() {plot_zomx(plot, firstDate*0.9999, lastDate*1.0001); clearSelection()});
+		$("#loungestats_resetzoombutton").click(function() {plot_zomx(plot, firstDate*0.9999, lastDate*1.0001)});
 	}else{
 		//with the linearaxisrenderer, i cant pre-set minx, and maxx, lol.
 		plot_zomx(plot, -boundary, absoluteIndex+boundary);
 		$("#pricehistory").dblclick(function() {plot_zomx(plot, -boundary, absoluteIndex+boundary); clearSelection()});
+		$("#loungestats_resetzoombutton").click(function() {plot_zomx(plot, -boundary, absoluteIndex+boundary)});
+
 	}
 
 	$('#loungestats_fullscreenbutton').click(function() {toggleFullscreen(plot)});
+	$("#loungestats_resetzoombutton").show();
 
-	$(window).on('resize', function(event, ui) {plot.replot();});
+	$(window).off('resize');
+	$(window).on('resize', function(event, ui) {plot.replot()});
 
 	$('#loungestats_datacontainer').append('<div id="loungestats_stats_text"></div>');
 
@@ -690,14 +697,15 @@ function loadStats(clean) {
 	}
 	cleanparse = clean;
 	$('#ajaxCont').html('<a id="loungestats_settingsbutton" class="button">LoungeStats Settings</a> \
-											<a id="loungestats_reloadbutton" class="button" style="display: none;">Refresh cache</a> \
+											<a id="loungestats_reloadbutton" class="button" style="display: none !important;">Refresh cache</a> \
+											<a id="loungestats_resetzoombutton" class="button" style="display: none !important;">Reset Zoom</a> \
 											<a class="button" target="_blank" href="http://steamcommunity.com/tradeoffer/new/?partner=33309635&token=H0lCbkY3">Donate ♥</a> \
 											<a class="button" target="_blank" href="http://reddit.com/r/LoungeStats">Subreddit</a> \
 											<br><hr><br> \
 											<div id="loungestats_datacontainer"> \
 												<img src="../img/load.gif" id="loading" style="margin: 0.75em 2%"> \
 											</div>');
-	if(localStorage['lastversion'] != version) {
+	if(newVersion) {
 		localStorage['lastversion'] = version;
 		$('#ajaxCont').prepend('<div id="loungestats_updateinfo" class="bpheader">LoungeStats was updated to ' + version + '!<br/>Please make sure to check <a href="http://reddit.com/r/loungestats">the subreddit</a> to see what changes were made!</div>');
 	}
@@ -816,7 +824,8 @@ function init() {
 							 #loungestats_mergepicks{border:2px solid #ccc; height: 100px; overflow-y: scroll; height: 258px; padding: 5px;-moz-box-sizing: border-box;-webkit-box-sizing: border-box;box-sizing: border-box;} \
 							 #loungestats_mergepicks div:first-child{font-weight: bold;} \
 							 #loungestats_mergepicks input{height: 20px !important;vertical-align: middle;} \
-							 #loungestats_datecontainer{position: relative}");
+							 #loungestats_datecontainer{position: relative} \
+							 #loungestats_stats_text a{color: blue}");
 
 	GM_addStyle(".calendar {top: 5px !important; left: 108px !important; font-family: 'Trebuchet MS', Tahoma, Verdana, Arial, sans-serif !important;font-size: 0.9em !important;background-color: #EEE !important;color: #333 !important;border: 1px solid #DDD !important;-moz-border-radius: 4px !important;-webkit-border-radius: 4px !important;border-radius: 4px !important;padding: 0.2em !important;width: 14em !important;}.calendar .months {background-color: #F6AF3A !important;border: 1px solid #E78F08 !important;-moz-border-radius: 4px !important;-webkit-border-radius: 4px !important;border-radius: 4px !important;color: #FFF !important;padding: 0.2em !important;text-align: center !important;}.calendar .prev-month,.calendar .next-month {padding: 0 !important;}.calendar .prev-month {float: left !important;}.calendar .next-month {float: right !important;}.calendar .current-month {margin: 0 auto !important;}.calendar .months .prev-month,.calendar .months .next-month {color: #FFF !important;text-decoration: none !important;padding: 0 0.4em !important;-moz-border-radius: 4px !important;-webkit-border-radius: 4px !important;border-radius: 4px !important;cursor: pointer !important;}.calendar .months .prev-month:hover,.calendar .months .next-month:hover {background-color: #FDF5CE !important;color: #C77405 !important;}.calendar table {border-collapse: collapse !important;padding: 0 !important;font-size: 0.8em !important;width: 100% !important;}.calendar th {text-align: center !important; color: black !important;}.calendar td {text-align: right !important;padding: 1px !important;width: 14.3% !important;}.calendar tr{border: none !important; background: none !important;}.calendar td span {display: block !important;color: #1C94C4 !important;background-color: #F6F6F6 !important;border: 1px solid #CCC !important;text-decoration: none !important;padding: 0.2em !important;cursor: pointer !important;}.calendar td span:hover {color: #C77405 !important;background-color: #FDF5CE !important;border: 1px solid #FBCB09 !important;}.calendar td.today span {background-color: #FFF0A5 !important;border: 1px solid #FED22F !important;color: #363636 !important;}")
 
