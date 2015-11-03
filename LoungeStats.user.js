@@ -1,20 +1,20 @@
 // ==UserScript==
-// @name				LoungeStats
-// @namespace		LoungeStats
-// @author			Kinsi http://reddit.com/u/kinsi55
-// @include			http://csgolounge.com/myprofile
+// @name        LoungeStats
+// @namespace   LoungeStats
+// @author      Kinsi http://reddit.com/u/kinsi55
+// @include     http://csgolounge.com/myprofile
 // @include     http://dota2lounge.com/myprofile
-// @version			0.3.2
-// @require			http://bibabot.de/stuff/jquery-2.1.1.min.js
-// @require			http://bibabot.de/stuff/jquery.jqplot.min.js
-// @require			http://bibabot.de/stuff/jqplot.cursor.min.js
-// @require			http://bibabot.de/stuff/jqplot.dateAxisRenderer.min.js
-// @require			http://bibabot.de/stuff/jqplot.highlighter.min.js
-// @require			http://bibabot.de/stuff/datepickr_mod.min.js
+// @version     0.3.3
+// @require     http://bibabot.de/stuff/jquery-2.1.1.min.js
+// @require     http://bibabot.de/stuff/jquery.jqplot.min.js
+// @require     http://bibabot.de/stuff/jqplot.cursor.min.js
+// @require     http://bibabot.de/stuff/jqplot.dateAxisRenderer.min.js
+// @require     http://bibabot.de/stuff/jqplot.highlighter.min.js
+// @require     http://bibabot.de/stuff/datepickr_mod.min.js
 // @downloadURL http://bibabot.de/stuff/LoungeStats.user.js
-// @updateURL		http://bibabot.de/stuff/LoungeStats.user.js
-// @grant				GM_xmlhttpRequest
-// @grant				GM_addStyle
+// @updateURL   http://bibabot.de/stuff/LoungeStats.user.js
+// @grant       GM_xmlhttpRequest
+// @grant       GM_addStyle
 // ==/UserScript==
 
 // You are not allowed to share modified versions of this script, or use parts of it without the authors permission
@@ -25,7 +25,7 @@ var app_id = window.location.hostname == 'dota2lounge.com' ? '570' : '730';
 var cleanparse = false;
 var inexactAlert = false;
 var bets = {};
-var version = '0.3.2RC';
+var version = '0.3.3RC';
 var newVersion = (localStorage['LoungeStats_lastversion'] != version);
 
 var setting_method = localStorage['LoungeStats_setting_method'];
@@ -83,9 +83,9 @@ function clearSelection() {
 }
 //http://stackoverflow.com/a/5812341/3526458
 function isValidDate(s) {
-  var bits = s.split('.');
-  var d = new Date(bits[2], bits[1] - 1, bits[0]);
-  return d && (d.getMonth() + 1) == bits[1] && d.getDate() == Number(bits[0]);
+	var bits = s.split('.');
+	var d = new Date(bits[2], bits[1] - 1, bits[0]);
+	return d && (d.getMonth() + 1) == bits[1] && d.getDate() == Number(bits[0]);
 }
 
 function getLoungeBetHistory(callback) {
@@ -162,7 +162,7 @@ function parseLoungeBetHistory(html, callback) {
 	var useaccs = accounts.active;
 
 	var bits = setting_beforedate.split('.');
-  var d = new Date(bits[2], bits[1]-1, bits[0]).getTime();
+	var d = new Date(bits[2], bits[1]-1, bits[0]).getTime();
 
 	if(!setting_domerge || setting_domerge == '0') useaccs = [user_steam64];
 
@@ -196,10 +196,10 @@ function parseLoungeBetHistory(html, callback) {
 			var itemname = itemarray[i];
 			var date = dabet.date;
 			//var localKeyName = getItemKeyName(itemname, date);
-			var x = new Date(Date.parse(date.replace(/-/g,' ') + ' +0'));
+			var x = Date.parse(date.replace(/-/g,' ') + ' +0');
 
 			//since between 28.11.2014 and 30.11.2014 the market crashed and the price skyrocketed, i need to fix gabens shit.
-			if(x>1417132800&&x<1417323600){
+			if(x>1417132800000&&x<1417323600000){
 				date="2014-11-28 00:00:00";
 			}
 
@@ -454,9 +454,9 @@ function generateStatsPage() {
 	}
 
 	$('#loungestats_fullscreenbutton').click(function() {toggleFullscreen(plot);});
-	$('#loungestats_resetzoombutton').show();
+	$('#loungestats_resetzoombutton, #loungestats_screenshotbutton, #loungestats_reloadbutton').show();
 
-	$(window).on('resize', function(event, ui) {plot.replot();});
+	$(window).on('resize', function() {plot.replot()});
 
 	$('#loungestats_datacontainer').append('<div id="loungestats_stats_text"></div>');
 
@@ -476,7 +476,93 @@ function generateStatsPage() {
 		plot_zomx(plot,chartData[losestreakstart][0],chartData[losestreakstart+losestreaklast][0]);
 	}).removeAttr('id');
 
-	$('#loungestats_reloadbutton').show();
+	$('#loungestats_screenshotbutton').click(function(){
+		if($('#loungestats_screenshotbutton').text() != "Screenshot") return;
+		alert("The Screenshot will be taken in 5 Seconds so that you can Hover a bet if you want to...");
+		$('#loungestats_screenshotbutton').text("Waiting");
+		setTimeout(function(){$('#loungestats_screenshotbutton').text("Waiting.")},1000);
+		setTimeout(function(){$('#loungestats_screenshotbutton').text("Waiting..")},2000);
+		setTimeout(function(){$('#loungestats_screenshotbutton').text("Waiting...")},3000);
+		setTimeout(function(){$('#loungestats_screenshotbutton').text("Waiting....")},4000);
+		setTimeout(function(){
+			$('#loungestats_screenshotbutton').text("Uploading...");
+			//$('#loungestats_profitgraph').attr("style", "width: 900px; height: 450px;");
+			//plot.replot();
+			var canvas = $("#loungestats_profitgraph").find('.jqplot-grid-canvas, .jqplot-series-shadowCanvas, .jqplot-series-canvas, .jqplot-highlight-canvas');
+			var w = canvas[0].width;
+			var h = canvas[0].height;
+			var newCanvas = $('<canvas/>').attr('width',w).attr('height',h)[0];
+			var context = newCanvas.getContext("2d");
+			context.fillStyle = "#FFF";
+			context.fillRect(0, 0, w, h);
+			context.fillStyle = "#000";
+			$(canvas).each(function() {
+				context.drawImage(this, this.style.left.replace("px",""), this.style.top.replace("px",""));
+			});
+
+			context.font="11px Arial";
+			var yaxis = $("#loungestats_profitgraph .jqplot-yaxis");
+			$(yaxis.children()).each(function() {
+				context.fillText(this.textContent, 3, parseInt(this.style.top)+10);
+			});
+			var xaxis = $("#loungestats_profitgraph .jqplot-xaxis");
+			$(xaxis.children()).each(function() {
+				context.fillText(this.textContent, parseInt(this.style.left)+1, h-12);
+			});
+			var ttip = $("#loungestats_profitgraph .jqplot-highlighter-tooltip")[0];
+			if(ttip.style.display != "none"){
+				context.font="16px Arial";
+				context.fillStyle = "#393938";
+				context.strokeStyle = "#808080";
+				context.fillRect(parseInt(ttip.style.left), parseInt(ttip.style.top), ttip.clientWidth, ttip.clientHeight);
+				context.lineWidth="1";
+				context.rect(parseInt(ttip.style.left), parseInt(ttip.style.top), ttip.clientWidth, ttip.clientHeight);
+				context.stroke();
+				context.fillStyle = "#FFF";
+				var strs = ttip.innerHTML.replace(/<br>/g,"|").replace(/<.+?>/g,"").split("|");
+				for(var i = 0; i < strs.length; i++) context.fillText(strs[i], parseInt(ttip.style.left)+5, parseInt(ttip.style.top)+18 +(i*16))
+			}
+			context.font="14px Arial";
+			context.fillStyle = "#000";
+			//$('#loungestats_profitgraph').removeAttr("style");
+			//plot.replot();
+			context.textAlign = 'center';
+			context.font="bold 15px Arial";
+			context.fillText("LoungeStats Profit Graph ("+(app_id == '730' ? "CS:GO" : "DotA")+") | http://reddit.com/r/LoungeStats", w/2, 17);
+
+			$.ajax({
+				url: 'https://api.imgur.com/3/image',
+				type: 'post',
+				headers: {
+					Authorization: 'Client-ID 449ec55696fd751'
+				},
+				data: {
+					image: newCanvas.toDataURL("image/jpeg", 0.90).replace("data:image/jpeg;base64,",""),
+					title: "LoungeStats Profit Graph Autoupload",
+					description: "Visit http://reddit.com/r/LoungeStats for more infos!"
+				},
+				dataType: 'json',
+				success: function(response) {
+					if(response.success) {
+						var myPopup = window.open(response.data.link, "", "directories=no,height="+h+",width="+w+",menubar=no,resizable=no,scrollbars=no,status=no,titlebar=no,top=0,location=no");
+						if (!myPopup)
+							alert("Your Screenshot was uploaded, but looks like your browser blocked the PopUp!");
+						else {
+							$('#loungestats_screenshotbutton').text("Screenshot");
+							myPopup.onload = function() {
+								setTimeout(function() {
+									if (myPopup.screenX === 0) alert("Your Screenshot was uploaded, but looks like your browser blocked the PopUp!");
+								}, 0);
+							};
+						}
+					}
+				},
+				error: function(){
+					alert("Sorry, uploading the image to imgur failed :(\n\nTry it again in a second and doublecheck that imgur is up!");
+				}
+			});
+		},5000)
+	})
 }
 
 var activefast = 0;
@@ -722,6 +808,7 @@ function loadStats(clean) {
 	$('#ajaxCont').html('<a id="loungestats_settingsbutton" class="button">LoungeStats Settings</a> \
 											<a id="loungestats_reloadbutton" class="button" style="display: none !important;">Refresh cache</a> \
 											<a id="loungestats_resetzoombutton" class="button" style="display: none !important;">Reset Zoom</a> \
+											<a id="loungestats_screenshotbutton" class="button" style="display: none !important;">Screenshot</a> \
 											<a class="button" target="_blank" href="http://steamcommunity.com/tradeoffer/new/?partner=33309635&token=H0lCbkY3">Donate ♥</a> \
 											<a class="button" target="_blank" href="http://reddit.com/r/LoungeStats">Subreddit</a> \
 											<br><hr><br> \
@@ -734,26 +821,27 @@ function loadStats(clean) {
 	}
 
 	$('#loungestats_reloadbutton').click(function() {loadStats(true);});
+
 	$('#loungestats_settingsbutton').click(function() {
-    $('#loungestats_overlay').fadeIn(500);
+		$('#loungestats_overlay').fadeIn(500);
 
-    var multiaccthing;
+		var multiaccthing;
 
-    if(app_id == 730) {
-      multiaccthing = '<div>CS:GO Accounts</div>';
-    } else {
-      multiaccthing = '<div>DotA Accounts</div>';
-    }
+		if(app_id == 730) {
+			multiaccthing = '<div>CS:GO Accounts</div>';
+		} else {
+			multiaccthing = '<div>DotA Accounts</div>';
+		}
 
-    for(var i in accounts.aval) {
-      if(accounts.active.indexOf(i) > -1) {
-        multiaccthing += '<input type="checkbox" name="'+i+'" checked> "<a href="http://steamcommunity.com/profiles/'+i+'" target="_blank">'+accounts.aval[i]+'</a>"<br/>';
-      } else {
-        multiaccthing += '<input type="checkbox" name="'+i+'"> "<a href="http://steamcommunity.com/profiles/'+i+'" target="_blank">'+accounts.aval[i]+'</a>"<br/>';
-      }
-    }
-    $('#loungestats_mergepicks').html(multiaccthing);
-  }).removeAttr('id');
+		for(var i in accounts.aval) {
+			if(accounts.active.indexOf(i) > -1) {
+				multiaccthing += '<input type="checkbox" name="'+i+'" checked> "<a href="http://steamcommunity.com/profiles/'+i+'" target="_blank">'+accounts.aval[i]+'</a>"<br/>';
+			} else {
+				multiaccthing += '<input type="checkbox" name="'+i+'"> "<a href="http://steamcommunity.com/profiles/'+i+'" target="_blank">'+accounts.aval[i]+'</a>"<br/>';
+			}
+		}
+		$('#loungestats_mergepicks').html(multiaccthing);
+	}).removeAttr('id');
 	loading = true;
 	getLoungeBetHistory(function(data) {
 		if(data !== null) {
