@@ -4,7 +4,7 @@
 // @author			Kinsi http://reddit.com/u/kinsi55
 // @include			http://csgolounge.com/myprofile
 // @include     http://dota2lounge.com/myprofile
-// @version			0.2.9
+// @version			0.3.0
 // @require			http://bibabot.de/stuff/jquery-2.1.1.min.js
 // @require			http://bibabot.de/stuff/jquery.jqplot.min.js
 // @require			http://bibabot.de/stuff/jqplot.cursor.min.js
@@ -25,7 +25,7 @@ var app_id = window.location.hostname == 'dota2lounge.com' ? '570' : '730';
 var cleanparse = false;
 var inexactAlert = false;
 var bets = {};
-var version = '0.2.9RC';
+var version = '0.3.0RC';
 var newVersion = (localStorage['LoungeStats_lastversion'] != version);
 
 var setting_method = localStorage['LoungeStats_setting_method'];
@@ -123,7 +123,7 @@ function parseLoungeBetHistory(html, callback) {
 	$($(doommeedd).find('tr:nth-child(3n+1)').get().reverse()).each(function(i, bet) {
 		var betid = bet.children[2].children[0].href.split('=').pop();
 
-		if(setting_debug == 1) console.log('Parsing match #' + betid);
+		if(setting_debug == '1') console.log('Parsing match #' + betid);
 
 		if(!(('LoungeStats_betcache_s'+user_steam64+'_'+betid) in localStorage) || cleanparse || newVersion) {
 			//Match wasnt cached, parse & cache...
@@ -142,6 +142,7 @@ function parseLoungeBetHistory(html, callback) {
 				var itemname = item.textContent.trim();
 				tocache.items.bet.push(itemname);
 				if(wonItems.length === 0 && matchoutcome && matchoutcome != 'won'/*matchoutcome == 'lost' Lounge admins are retarded*/) {
+					console.log(matchoutcome);
 					tocache.items.lost.push(itemname);
 				}
 			});
@@ -151,7 +152,7 @@ function parseLoungeBetHistory(html, callback) {
 				tocache.items.won.push(itemname);
 			});
 			//}
-			if(setting_debug == 1) console.log(tocache);
+			if(setting_debug == '1') console.log(tocache);
 
 			localStorage['LoungeStats_betcache_s'+user_steam64+'_'+betid] = JSON.stringify(tocache);
 		}
@@ -199,13 +200,13 @@ function parseLoungeBetHistory(html, callback) {
 
 			if(cleanparse || (!(localKeyName in cacheWeapons) && !getItemPrice(itemname, date))) {
 				//Price of an item is needed thats not cached yet, add it to cache que
-				if(setting_debug == 1) console.log('Added ' + itemname + ' To cache que...');
+				if(setting_debug == '1') console.log('Added ' + itemname + ' To cache que...');
 				cacheWeapons[localKeyName] = [itemname, date];
 			}
 		}
 	}
 
-	if(setting_debug == 1){console.log('cached weaps:'); console.log(cacheWeapons);}
+	if(setting_debug == '1'){console.log('cached weaps:'); console.log(cacheWeapons);}
 
 	//iterate trough all the queud items that the price is needed of, get & cache it.
 	var cancel = false;
@@ -216,7 +217,7 @@ function parseLoungeBetHistory(html, callback) {
 		var aboutTime = [0,0,0,0,0,0,0,0,0,0];
 		var startTick = new Date().getTime();
 
-		getAllPrices(cacheWeapons, Object.keys(cacheWeapons), setting_method == 1 ? 380 : 560, 0, function(success) {
+		getAllPrices(cacheWeapons, Object.keys(cacheWeapons), setting_method == '1' ? 380 : 560, 0, function(success) {
 			if(success) {
 				$('#loungestats_datacontainer').html('Generating stats... (If you can see this either you are using a calculator or, more likely, something went horribly wrong)');
 				callback(true);
@@ -243,7 +244,7 @@ function parseLoungeBetHistory(html, callback) {
 
 			$('#loungestats_loadprogress').val(prog);
 			$('#loungestats_loadprogresslabel').html('(' + prog + '/' + cwlen + ')<br/>ETA: ~'+eta);
-		}, setting_method !== 0);
+		}, setting_method !== '0');
 	}
 	else {
 		$('#loungestats_datacontainer').html('Generating stats... (If you can see this either you are using a calculator or, more likely, something went horribly wrong)');
@@ -321,28 +322,28 @@ function generateStatsPage() {
 			betValue += getItemPrice(itemname, b.date);
 		}
 
-		if(setting_debug == 1) console.log('################################# ' + teamString + '(' + betid + ')');
-		if(setting_debug == 1) console.log('>>>Winnings');
-		if(setting_debug == 1) console.log(b.items.won);
+		if(setting_debug == '1') console.log('################################# ' + teamString + '(' + betid + ')');
+		if(setting_debug == '1') console.log('>>>Winnings');
+		if(setting_debug == '1') console.log(b.items.won);
 		for(item in b.items.won) {
 			itemname = b.items.won[item];
 			price = getItemPrice(itemname, b.date);
-			if(setting_debug == 1) console.log(itemname + ': ' + price + ' (' + b.date + ')');
+			if(setting_debug == '1') console.log(itemname + ': ' + price + ' (' + b.date + ')');
 			value += price;
 			overallWon += price;
 		}
 
-		if(setting_debug == 1) console.log('>>>Losses');
-		if(setting_debug == 1) console.log(b.items.lost);
+		if(setting_debug == '1') console.log('>>>Losses');
+		if(setting_debug == '1') console.log(b.items.lost);
 
 		for(item in b.items.lost) {
 			itemname = b.items.lost[item];
 			price = getItemPrice(itemname, b.date);
-			if(setting_debug == 1) console.log(itemname + ': ' + price + ' (' + b.date + ')');
+			if(setting_debug == '1') console.log(itemname + ': ' + price + ' (' + b.date + ')');
 			value -= price;
 			overallLost += price;
 		}
-		if(setting_debug == 1) console.log('net change:' + value);
+		if(setting_debug == '1') console.log('net change:' + value);
 		overallValue += value;
 
 		mergeMatchWin = (value >= 0);
@@ -382,7 +383,7 @@ function generateStatsPage() {
 			value = value.toFixed(2).toString();
 		}
 
-		if(setting_debug == 1) console.log('node(' + b.date + ')->' + overallValue);
+		if(setting_debug == '1') console.log('node(' + b.date + ')->' + overallValue);
 
 		chartData.push([setting_xaxis == '0' ? b.date : absoluteIndex, parseFloat(overallValue.toFixed(2)), betValue, value, teamString]);
 		if(setting_bvalue == 1) betData.push([setting_xaxis == '0' ? b.date : absoluteIndex, betValue, teamString]);
@@ -503,9 +504,8 @@ function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback,
 					activefast--;
 					progresscallback(fastindex-activefast);//this actually is right, wat.
 					if(!fastLooping) getAllPrices(itemarray, itemarraykeylist, delay, fastindex, callback, progresscallback, exact);
-					if(setting_debug == 1) console.log(fastindex-activefast);
-				}
-				else {
+					if(setting_debug == '1') console.log(fastindex-activefast);
+				} else {
 					fastindex = itemarraykeylist.length +1;
 					$('#loungestats_datacontainer').html('Could not connect to steam communitymarket API, try again later...');
 					callback(false);
@@ -517,7 +517,7 @@ function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback,
 }
 
 function cacheItem(itemname, callback, exactfallback) {
-	if(setting_debug == 1) console.log('Caching item price of ' + itemname + '...');
+	if(setting_debug == '1') console.log('Caching item price of ' + itemname + '...');
 	var localKeyName = getItemKeyName(itemname, exactfallback);
 
 	GM_xmlhttpRequest({
@@ -528,7 +528,7 @@ function cacheItem(itemname, callback, exactfallback) {
 				var responseParsed = JSON.parse(response.responseText);
 				if(responseParsed.success === true && 'median_price' in responseParsed) {
 					var price = parseFloat(responseParsed['median_price'].replace('&#36;','').replace('&#163;','').replace('&#8364;','').replace('p&#1091;&#1073;.','').replace('&#82;','').replace(',', '.').trim());
-					if(setting_debug == 1) console.log('Cached item price of ' + itemname + ' | Price: ' + price);
+					if(setting_debug == '1') console.log('Cached item price of ' + itemname + ' | Price: ' + price);
 					localStorage.setItem(localKeyName, price);
 					callback(true);
 					return;
@@ -547,12 +547,12 @@ function cacheItem(itemname, callback, exactfallback) {
 						//hi
 					}
 
-					if(setting_debug == 1) console.log('Cached item price of ' + itemname + ' | Price: ' + price);
+					if(setting_debug == '1') console.log('Cached item price of ' + itemname + ' | Price: ' + price);
 					localStorage.setItem(localKeyName, price);
 					callback(true);
 					return;
 				}// No lowest price seems existant, assume price as 0 since i cant do anything else really
-				else if(setting_debug == 1) {
+				else if(setting_debug == '1') {
 					console.log('Failed to load ' + itemname + ', assuming as 0');
 				}
 			}
@@ -581,7 +581,7 @@ function convertUsd(usd) {
 }
 
 function cacheItemExact(itemname, loungetime, callback) {
-	if(setting_debug == 1) console.log('Caching exact item price of ' + itemname + '...');
+	if(setting_debug == '1') console.log('Caching exact item price of ' + itemname + '...');
 	var betdate = new Date(Date.parse(loungetime.replace(/-/g,' ') + ' +0'));
 	var localKeyName = getItemKeyName(itemname, loungetime);
 	GM_xmlhttpRequest({
@@ -625,14 +625,14 @@ function cacheItemExact(itemname, loungetime, callback) {
 									inexactAlert = true;
 									alert('For your Information. Since you are using the exact method you want exact prices. Because of this, i am alerting you that i cant provide exact prices for you sadly, the reason being that i dont know how to deal with your local currency. The best you can do is to select US$ as your currency, this will display values in your local currency. The alternative is to use the fast method because i can tell steam which currency i want the prices in for that, which i cant for the price history sadly. I\'m sorry for that');
 								}
-								if(setting_debug == 1) console.log('Parsed: ' + datadate + ' Requested: ' + loungetime);
+								if(setting_debug == '1') console.log('Parsed: ' + datadate + ' Requested: ' + loungetime);
 								localStorage[localKeyName] = p;
 								callback(true);
 								return;
 							}
 							prev = datadate;
 						}
-						if(setting_debug == 1) console.log('Parsed: ' + datadate + ' Requested: ' + loungetime);
+						if(setting_debug == '1') console.log('Parsed: ' + datadate + ' Requested: ' + loungetime);
 						localStorage[localKeyName] = p;
 						callback(true);
 						return;
@@ -641,7 +641,7 @@ function cacheItemExact(itemname, loungetime, callback) {
 			}
 			//otherwise attempt to use the inexact price instead of the exact price since i cant do anything else really
 			if((response.responseText.indexOf('There is no price history available for this item yet.') > -1) || response.responseText.indexOf('There are no listings for this item.') > -1) {
-				if(setting_debug == 1) console.log('Falling back to unexact price...');
+				if(setting_debug == '1') console.log('Falling back to unexact price...');
 				cacheItem(itemname, callback, loungetime);
 				return;
 			}
@@ -651,7 +651,7 @@ function cacheItemExact(itemname, loungetime, callback) {
 }
 //Internal function for generating central localstorage key names
 function getItemKeyName(itemname, loungetime) {
-	if(loungetime && setting_method !== 0) {
+	if(loungetime && setting_method !== '0') {
 		var betdate = new Date(Date.parse(loungetime.replace(/-/g,' ') + ' +0'));
 		return 'LoungeStats_itemexact_' + betdate.getUTCDate() + '_' + betdate.getUTCMonth() + '_' + betdate.getYear() + '_' + itemname.replace(/ /g, '_');
 	} else {
@@ -662,7 +662,7 @@ function getItemKeyName(itemname, loungetime) {
 function getItemPrice(itemname, loungetime) {
 	var localKeyName = getItemKeyName(itemname, loungetime);
 	if(localStorage[localKeyName]) {
-		if(loungetime && setting_method !== 0) {
+		if(loungetime && setting_method != '0') {
 			return convertUsd(parseFloat(localStorage[localKeyName]));
 		}
 		return parseFloat(localStorage[localKeyName]);
@@ -739,8 +739,7 @@ function loadStats(clean) {
 	});
 }
 
-function toggleFullscreen(jqplot)
-{
+function toggleFullscreen(jqplot) {
 	if($('#loungestats_profitgraph').hasClass('fullsc')) {
 		$('#loungestats_profitgraph').removeClass('fullsc');
 		$('#loungestats_fullscreenbutton').removeClass('fullsc');
@@ -752,8 +751,7 @@ function toggleFullscreen(jqplot)
 }
 
 //called when save is pressed in the settings
-function saveSettings()
-{
+function saveSettings() {
 	localStorage['LoungeStats_setting_method'] = $('#loungestats_method').val(); setting_method = localStorage['LoungeStats_setting_method'];
 	localStorage['LoungeStats_setting_currency'] = $('#loungestats_currency').val(); setting_currency = localStorage['LoungeStats_setting_currency'];
 	localStorage['LoungeStats_setting_bvalue'] = $('#loungestats_bgraph').val(); setting_bvalue = localStorage['LoungeStats_setting_bvalue'];
@@ -824,7 +822,7 @@ function init() {
 	GM_addStyle('.calendar {top: 5px !important; left: 108px !important; font-family: \'Trebuchet MS\', Tahoma, Verdana, Arial, sans-serif !important;font-size: 0.9em !important;background-color: #EEE !important;color: #333 !important;border: 1px solid #DDD !important;-moz-border-radius: 4px !important;-webkit-border-radius: 4px !important;border-radius: 4px !important;padding: 0.2em !important;width: 14em !important;}.calendar .months {background-color: #F6AF3A !important;border: 1px solid #E78F08 !important;-moz-border-radius: 4px !important;-webkit-border-radius: 4px !important;border-radius: 4px !important;color: #FFF !important;padding: 0.2em !important;text-align: center !important;}.calendar .prev-month,.calendar .next-month {padding: 0 !important;}.calendar .prev-month {float: left !important;}.calendar .next-month {float: right !important;}.calendar .current-month {margin: 0 auto !important;}.calendar .months .prev-month,.calendar .months .next-month {color: #FFF !important;text-decoration: none !important;padding: 0 0.4em !important;-moz-border-radius: 4px !important;-webkit-border-radius: 4px !important;border-radius: 4px !important;cursor: pointer !important;}.calendar .months .prev-month:hover,.calendar .months .next-month:hover {background-color: #FDF5CE !important;color: #C77405 !important;}.calendar table {border-collapse: collapse !important;padding: 0 !important;font-size: 0.8em !important;width: 100% !important;}.calendar th {text-align: center !important; color: black !important;}.calendar td {text-align: right !important;padding: 1px !important;width: 14.3% !important;}.calendar tr{border: none !important; background: none !important;}.calendar td span {display: block !important;color: #1C94C4 !important;background-color: #F6F6F6 !important;border: 1px solid #CCC !important;text-decoration: none !important;padding: 0.2em !important;cursor: pointer !important;}.calendar td span:hover {color: #C77405 !important;background-color: #FDF5CE !important;border: 1px solid #FBCB09 !important;}.calendar td.today span {background-color: #FFF0A5 !important;border: 1px solid #FED22F !important;color: #363636 !important;}');
 
 	$('body').append('<div id="loungestats_overlay"> \
-		<div id="loungestats_settingswindow"'+((setting_domerge == 1) ? ' class="accounts"' : '')+'> \
+		<div id="loungestats_settingswindow"'+((setting_domerge == '1') ? ' class="accounts"' : '')+'> \
 			<div id="loungestats_settings_title">Loungestats '+version+' Settings | by <a href="http://reddit.com/u/kinsi55">/u/kinsi55</a><br><br></div> \
 			<div id="loungestats_settings_panelcontainer"> \
 				<div id="loungestats_settings_leftpanel"> \
