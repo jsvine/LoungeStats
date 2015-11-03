@@ -4,7 +4,7 @@
 // @author			Kinsi http://reddit.com/u/kinsi55
 // @include			http://csgolounge.com/myprofile
 // @include     http://dota2lounge.com/myprofile
-// @version			0.2.7
+// @version			0.2.9
 // @require			http://bibabot.de/stuff/jquery-2.1.1.min.js
 // @require			http://bibabot.de/stuff/jquery.jqplot.min.js
 // @require			http://bibabot.de/stuff/jqplot.cursor.min.js
@@ -25,7 +25,7 @@ var app_id = window.location.hostname == 'dota2lounge.com' ? '570' : '730';
 var cleanparse = false;
 var inexactAlert = false;
 var bets = {};
-var version = '0.2.7RC';
+var version = '0.2.9RC';
 var newVersion = (localStorage['LoungeStats_lastversion'] != version);
 
 var setting_method = localStorage['LoungeStats_setting_method'];
@@ -141,8 +141,7 @@ function parseLoungeBetHistory(html, callback) {
 			$(betItems).each(function(i, item) {
 				var itemname = item.textContent.trim();
 				tocache.items.bet.push(itemname);
-				console.log(wonItems.length);
-				if(wonItems.length === 0 /*matchoutcome == 'lost' Lounge admins are retarded*/) {
+				if(wonItems.length === 0 && matchoutcome && matchoutcome != 'won'/*matchoutcome == 'lost' Lounge admins are retarded*/) {
 					tocache.items.lost.push(itemname);
 				}
 			});
@@ -165,7 +164,7 @@ function parseLoungeBetHistory(html, callback) {
 	var bits = setting_beforedate.split('.');
   var d = new Date(bits[2], bits[1]-1, bits[0]).getTime();
 
-	if(!setting_domerge || setting_domerge === 0) useaccs = [user_steam64];
+	if(!setting_domerge || setting_domerge == '0') useaccs = [user_steam64];
 
 	for(var x in useaccs) {
 		var accid = useaccs[x];
@@ -385,8 +384,8 @@ function generateStatsPage() {
 
 		if(setting_debug == 1) console.log('node(' + b.date + ')->' + overallValue);
 
-		chartData.push([setting_xaxis === 0 ? b.date : absoluteIndex, parseFloat(overallValue.toFixed(2)), betValue, value, teamString]);
-		if(setting_bvalue == 1) betData.push([setting_xaxis === 0 ? b.date : absoluteIndex, betValue, teamString]);
+		chartData.push([setting_xaxis == '0' ? b.date : absoluteIndex, parseFloat(overallValue.toFixed(2)), betValue, value, teamString]);
+		if(setting_bvalue == 1) betData.push([setting_xaxis == '0' ? b.date : absoluteIndex, betValue, teamString]);
 		absoluteIndex++;
 	}
 
@@ -396,7 +395,7 @@ function generateStatsPage() {
 
 	var boundary = parseInt(absoluteIndex * 0.05); if(boundary === 0) boundary = 1;
 
-	var xaxis_def = setting_xaxis === 0 ? {renderer:$.jqplot.DateAxisRenderer,tickOptions: {formatString: '%d %b %y'}, min: firstDate*0.9999,maxx: lastDate*1.0001} : {renderer: $.jqplot.LinearAxisRenderer, tickOptions: {formatString: '%i'}};
+	var xaxis_def = setting_xaxis == '0' ? {renderer:$.jqplot.DateAxisRenderer,tickOptions: {formatString: '%d %b %y'}, min: firstDate*0.9999,maxx: lastDate*1.0001} : {renderer: $.jqplot.LinearAxisRenderer, tickOptions: {formatString: '%i'}};
 
 	var plot = $.jqplot('loungestats_profitgraph', [chartData, betData], {
 		title:{text: 'Overall profit over time'},
@@ -432,7 +431,7 @@ function generateStatsPage() {
 		$('.jqplot-event-canvas').css('cursor', 'crosshair');
 	});
 
-	if(setting_xaxis === 0) {
+	if(setting_xaxis == '0') {
 		$('#loungestats_profitgraph').dblclick(function() {plot_zomx(plot, firstDate*0.9999, lastDate*1.0001); clearSelection();});
 		$('#loungestats_resetzoombutton').click(function() {plot_zomx(plot, firstDate*0.9999, lastDate*1.0001);});
 	}else{
