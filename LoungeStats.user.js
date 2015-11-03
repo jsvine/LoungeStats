@@ -4,7 +4,7 @@
 // @author			Kinsi http://reddit.com/u/kinsi55
 // @include			http://csgolounge.com/myprofile
 // @include     http://dota2lounge.com/myprofile
-// @version			0.3.0
+// @version			0.3.1
 // @require			http://bibabot.de/stuff/jquery-2.1.1.min.js
 // @require			http://bibabot.de/stuff/jquery.jqplot.min.js
 // @require			http://bibabot.de/stuff/jqplot.cursor.min.js
@@ -25,7 +25,7 @@ var app_id = window.location.hostname == 'dota2lounge.com' ? '570' : '730';
 var cleanparse = false;
 var inexactAlert = false;
 var bets = {};
-var version = '0.3.0RC';
+var version = '0.3.1RC';
 var newVersion = (localStorage['LoungeStats_lastversion'] != version);
 
 var setting_method = localStorage['LoungeStats_setting_method'];
@@ -142,7 +142,6 @@ function parseLoungeBetHistory(html, callback) {
 				var itemname = item.textContent.trim();
 				tocache.items.bet.push(itemname);
 				if(wonItems.length === 0 && matchoutcome && matchoutcome != 'won'/*matchoutcome == 'lost' Lounge admins are retarded*/) {
-					console.log(matchoutcome);
 					tocache.items.lost.push(itemname);
 				}
 			});
@@ -189,6 +188,7 @@ function parseLoungeBetHistory(html, callback) {
 	}
 
 	for(var bet in bets) {
+		console.log(bet);
 		var dabet = bets[bet];
 
 		var itemarray = dabet.items.bet.concat(dabet.items.won).concat(dabet.items.lost);
@@ -196,17 +196,19 @@ function parseLoungeBetHistory(html, callback) {
 		for(var i in itemarray) {
 			var itemname = itemarray[i];
 			var date = dabet.date;
-			var localKeyName = getItemKeyName(itemname, date);
+			//var localKeyName = getItemKeyName(itemname, date);
 
-			if(cleanparse || (!(localKeyName in cacheWeapons) && !getItemPrice(itemname, date))) {
+			if(cleanparse || !getItemPrice(itemname, date)) { /*|| (!(localKeyName in cacheWeapons)*/
 				//Price of an item is needed thats not cached yet, add it to cache que
 				if(setting_debug == '1') console.log('Added ' + itemname + ' To cache que...');
-				cacheWeapons[localKeyName] = [itemname, date];
+				if(!cacheWeapons[itemname]) cacheWeapons[itemname] = [];
+				if((setting_method !== '0' && cacheWeapons[itemname].indexOf(date) == -1) || cacheWeapons[itemname].length === 0) cacheWeapons[itemname].push(date);
+				//cacheWeapons[localKeyName] = [itemname, date];
 			}
 		}
 	}
 
-	if(setting_debug == '1'){console.log('cached weaps:'); console.log(cacheWeapons);}
+	if(setting_debug == '1'){console.log('weapos to cache:'); console.log(cacheWeapons);}
 
 	//iterate trough all the queud items that the price is needed of, get & cache it.
 	var cancel = false;
@@ -223,6 +225,7 @@ function parseLoungeBetHistory(html, callback) {
 				callback(true);
 			} else {
 				$('#loungestats_datacontainer').html('Could not connect to steam communitymarket API, try again later...');
+				if(setting_method == '1') $('#loungestats_datacontainer').append('<br>If you keep getting this error try switching the parsing method to "Most exact <b>& safest</b>"');
 				loading = false;
 			}
 		}, function(prog) {
@@ -474,7 +477,8 @@ var fastLooping = false;
 
 function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback, progresscallback, exact) {
 	if(!arrayoffset) arrayoffset = 0;
-	var item = itemarray[itemarraykeylist[arrayoffset]];
+	var item = itemarraykeylist[arrayoffset];
+	var itemDates = itemarray[itemarraykeylist[arrayoffset]];
 
 	if(!item) {
 		if(activefast === 0) callback(true);
@@ -482,7 +486,7 @@ function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback,
 	}
 	if(exact) {
 		//var betdate = new Date(Date.parse(loungetime.replace(/-/g,' ') + ' +0'));
-		cacheItemExact(item[0], item[1], function(success) {
+		cacheItemsExact(item, itemDates, function(success) {
 			if(success) {
 				progresscallback(arrayoffset+1);
 				//Recursively re-call myself with a delay until all prices are parsed, this is because the amount of requests to the market possible is limited
@@ -490,6 +494,7 @@ function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback,
 			}
 			else {
 				$('#loungestats_datacontainer').html('Could not connect to steam communitymarket API, try again later...');
+				if(setting_method == '1') $('#loungestats_datacontainer').append('<br>If you keep getting this error try switching the parsing method to "Most exact <b>& safest</b>"');
 				callback(false);
 			}
 		});
@@ -499,7 +504,7 @@ function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback,
 		while(activefast < 10 && fastindex < itemarraykeylist.length) {
 			item = itemarray[itemarraykeylist[fastindex]];
 			activefast++; fastindex++;
-			cacheItem(item[0], function(success) {
+			cacheItem(item, function(success) {
 				if(success) {
 					activefast--;
 					progresscallback(fastindex-activefast);//this actually is right, wat.
@@ -508,6 +513,7 @@ function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback,
 				} else {
 					fastindex = itemarraykeylist.length +1;
 					$('#loungestats_datacontainer').html('Could not connect to steam communitymarket API, try again later...');
+					if(setting_method == '1') $('#loungestats_datacontainer').append('<br>If you keep getting this error try switching the parsing method to "Most exact <b>& safest</b>"');
 					callback(false);
 				}
 			}, item[1]);
@@ -518,8 +524,6 @@ function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback,
 
 function cacheItem(itemname, callback, exactfallback) {
 	if(setting_debug == '1') console.log('Caching item price of ' + itemname + '...');
-	var localKeyName = getItemKeyName(itemname, exactfallback);
-
 	GM_xmlhttpRequest({
 		method: 'GET',
 		url: 'http://steamcommunity.com/market/priceoverview/?currency=' + localStorage['LoungeStats_setting_currency'] + '&appid=' + app_id + '&market_hash_name=' + encodeURI(itemname),
@@ -529,7 +533,11 @@ function cacheItem(itemname, callback, exactfallback) {
 				if(responseParsed.success === true && 'median_price' in responseParsed) {
 					var price = parseFloat(responseParsed['median_price'].replace('&#36;','').replace('&#163;','').replace('&#8364;','').replace('p&#1091;&#1073;.','').replace('&#82;','').replace(',', '.').trim());
 					if(setting_debug == '1') console.log('Cached item price of ' + itemname + ' | Price: ' + price);
-					localStorage.setItem(localKeyName, price);
+					for(loungetime in exactfallback){
+						var localKeyName = getItemKeyName(itemname, exactfallback[loungetime]);
+						localStorage.setItem(localKeyName, price);
+					}
+
 					callback(true);
 					return;
 				}// No median price seems existant, attempt to use the lowest price
@@ -548,7 +556,10 @@ function cacheItem(itemname, callback, exactfallback) {
 					}
 
 					if(setting_debug == '1') console.log('Cached item price of ' + itemname + ' | Price: ' + price);
-					localStorage.setItem(localKeyName, price);
+					for(loungetime in exactfallback){
+						var localKeyName = getItemKeyName(itemname, exactfallback[loungetime]);
+						localStorage.setItem(localKeyName, price);
+					}
 					callback(true);
 					return;
 				}// No lowest price seems existant, assume price as 0 since i cant do anything else really
@@ -556,7 +567,10 @@ function cacheItem(itemname, callback, exactfallback) {
 					console.log('Failed to load ' + itemname + ', assuming as 0');
 				}
 			}
-			localStorage.setItem(localKeyName, 0.0);
+			for(loungetime in exactfallback){
+				var localKeyName = getItemKeyName(itemname, exactfallback[loungetime]);
+				localStorage.setItem(localKeyName, 0.0);
+			}
 			callback(true);
 		}
 	});
@@ -580,10 +594,8 @@ function convertUsd(usd) {
 	return usd;
 }
 
-function cacheItemExact(itemname, loungetime, callback) {
-	if(setting_debug == '1') console.log('Caching exact item price of ' + itemname + '...');
-	var betdate = new Date(Date.parse(loungetime.replace(/-/g,' ') + ' +0'));
-	var localKeyName = getItemKeyName(itemname, loungetime);
+function cacheItemsExact(itemname, loungetimes, callback) {
+	if(setting_debug == '1') console.log('Caching exact item prices of ' + itemname + '...');
 	GM_xmlhttpRequest({
 		method: 'GET',
 		//tricky stuff, since i cant get the price history when im not logged in, im downloading the items market page. Even if there are not items on sale at that very moment
@@ -599,41 +611,47 @@ function cacheItemExact(itemname, loungetime, callback) {
 				if(rgx) {
 					var arr = JSON.parse('[[' + rgx[1] + ']]');
 
+
 					if(arr !== null) {
-						var prev = null;
-						//and iterate trough it here if it was found
-						var p = 0.0;
-						var datadate = null;
-						for(var i in arr) {
-							datadate = new Date(Date.parse(arr[i][0]));
-							p = parseFloat(arr[i][1]);
+						for(var loungetimei in loungetimes){
+							var localKeyName = getItemKeyName(itemname, loungetimes[loungetimei]);
+							var betdate = new Date(Date.parse(loungetimes[loungetimei].replace(/-/g,' ') + ' +0'));
 
-							if(curr[0].indexOf('&#82;&#36;') > -1) {
-								p *= curr_usd_brd;
-							}else if(curr[0].indexOf('&#163;') > -1) {
-								p *= curr_usd_gbp;
-							}else if(curr[0].indexOf('&#8364;') > -1) {
-								p *= curr_usd_eur;
-							}else if(curr[0].indexOf('p&#1091;&#1073;') > -1) {
-								p *= curr_usd_rub;
-							}else if(curr[0].indexOf('&#36;') > -1) {
-								//hi
-							} else { inexact = true; }
+							var prev = null;
+							//and iterate trough it here if it was found
+							var p = 0.0;
+							var datadate = null;
+							for(var i in arr) {
+								datadate = new Date(Date.parse(arr[i][0]));
+								p = parseFloat(arr[i][1]);
 
-							if(datadate >= betdate && (prev === null || prev < betdate)) {
-								if(inexact && !inexactAlert) {
-									inexactAlert = true;
-									alert('For your Information. Since you are using the exact method you want exact prices. Because of this, i am alerting you that i cant provide exact prices for you sadly, the reason being that i dont know how to deal with your local currency. The best you can do is to select US$ as your currency, this will display values in your local currency. The alternative is to use the fast method because i can tell steam which currency i want the prices in for that, which i cant for the price history sadly. I\'m sorry for that');
+								if(curr[0].indexOf('&#82;&#36;') > -1) {
+									p *= curr_usd_brd;
+								}else if(curr[0].indexOf('&#163;') > -1) {
+									p *= curr_usd_gbp;
+								}else if(curr[0].indexOf('&#8364;') > -1) {
+									p *= curr_usd_eur;
+								}else if(curr[0].indexOf('p&#1091;&#1073;') > -1) {
+									p *= curr_usd_rub;
+								}else if(curr[0].indexOf('&#36;') > -1) {
+									//hi
+								} else { inexact = true; }
+
+								if(datadate >= betdate && (prev === null || prev < betdate)) {
+									if(inexact && !inexactAlert) {
+										inexactAlert = true;
+										alert('For your Information. Since you are using the exact method you want exact prices. Because of this, i am alerting you that i cant provide exact prices for you sadly, the reason being that i dont know how to deal with your local currency. The best you can do is to select US$ as your currency, this will display values in your local currency. The alternative is to use the fast method because i can tell steam which currency i want the prices in for that, which i cant for the price history sadly. I\'m sorry for that');
+									}
+									if(setting_debug == '1') console.log('Parsed: ' + datadate + ' Requested: ' + loungetimes[loungetimei]);
+									localStorage[localKeyName] = p;
 								}
-								if(setting_debug == '1') console.log('Parsed: ' + datadate + ' Requested: ' + loungetime);
-								localStorage[localKeyName] = p;
-								callback(true);
-								return;
+								prev = datadate;
 							}
-							prev = datadate;
+							if(!localStorage[localKeyName]){
+								if(setting_debug == '1') console.log('Parsed: ' + datadate + ' Requested: ' + loungetimes[loungetimei]);
+								localStorage[localKeyName] = p;
+							}
 						}
-						if(setting_debug == '1') console.log('Parsed: ' + datadate + ' Requested: ' + loungetime);
-						localStorage[localKeyName] = p;
 						callback(true);
 						return;
 					}
@@ -642,7 +660,7 @@ function cacheItemExact(itemname, loungetime, callback) {
 			//otherwise attempt to use the inexact price instead of the exact price since i cant do anything else really
 			if((response.responseText.indexOf('There is no price history available for this item yet.') > -1) || response.responseText.indexOf('There are no listings for this item.') > -1) {
 				if(setting_debug == '1') console.log('Falling back to unexact price...');
-				cacheItem(itemname, callback, loungetime);
+				cacheItem(itemname, callback, loungetimes);
 				return;
 			}
 			callback(false);
