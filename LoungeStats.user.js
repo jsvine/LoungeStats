@@ -6,7 +6,7 @@
 // @include     http://dota2lounge.com/myprofile
 // @include     https://csgolounge.com/myprofile
 // @include     https://dota2lounge.com/myprofile
-// @version     0.4.0
+// @version     0.4.1
 // @require     http://loungestats.kinsi.me/dl/jquery-2.1.1.min.js
 // @require    	http://loungestats.kinsi.me/dl/jquery.jqplot.min.js
 // @require     http://loungestats.kinsi.me/dl/jqplot.cursor.min.js
@@ -28,7 +28,7 @@
 
 
 // This code is shit, i get nightmares when i have to maintain it
-// It please dont try to understand it
+// PLEASE HELP TO MAKE THIS WORLD A BETTER PLACE
 
 var app_id = (window.location.hostname == 'dota2lounge.com' ? '570' : '730');
 var cleanparse = false;
@@ -36,25 +36,6 @@ var inexactAlert = false;
 var bets = {};
 var version = GM_info.script.version;
 var newVersion = (GM_getValue('LoungeStats_lastversion') != version);
-
-if(localStorage['LoungeStats_lastversion'] && version == '0.4.0' && confirm("Thanks for updating to LoungeStats 0.4.0. In version 0.3.8 i switched the way i save settings / cache items to be more stable. Due do this, i will convert over the values from the old method to the new one now. Your browser might lag for up to a minute, depending on your computer and bet history size (This only has to be done once, click OK to start, or Cancel to not convert over the data and re-load all prices (Recommended if you are on a low-end computer and want to avoid issues!)")) {
-	for(var lSKey in localStorage) {
-		if(lSKey.indexOf("LoungeStats") !== 0) continue;
-
-		if(lSKey == 'LoungeStats_accounts'){
-			GM_setValue(lSKey, JSON.stringify({aval:{'570': {}, '730': {}}, active:{'570': [], '730': []}}));
-		}else{
-			GM_setValue(lSKey.replace("LoungeStats_betcache", "LoungeStats_betcache_g"+app_id), localStorage[lSKey]);
-		}
-		//console.log("Converting "+lSKey+" from LocalStorage to GM Values.. ("+localStorage[lSKey]+")");
-
-		localStorage.removeItem(lSKey);
-	}
-
-	alert("Im sorry, but converting everything is not possible. All your cached bets and item prices are still there, you need to open LoungeStats with every account that was there before though once again for everything to show up.");
-
-	GM_setValue('LoungeStats_lastversion', version);
-}
 
 var setting_method = GM_getValue('LoungeStats_setting_method');
 var setting_currency = GM_getValue('LoungeStats_setting_currency');
@@ -1020,12 +1001,12 @@ function saveSettings() {
 
 //I know that gm scripts are called on the documentReady, i like having it like this nevertheless.
 function init() {
-	$('section:nth-child(2) div:nth-child(1)').append('<a id="loungestats_tabbutton" class="button">LoungeStats</a>');
+	$('section:nth-child(2) div.box-shiny').append('<a id="loungestats_tabbutton" class="button">LoungeStats</a>');
 	GM_addStyle('.jqplot-highlighter-tooltip {background-color: #393938; border: 1px solid gray; padding: 5px; color: #ccc} \
 							 .jqplot-xaxis {margin-top: 5px; font-size: 12px} \
 							 .jqplot-yaxis {margin-right: 5px; width: 55px; font-size: 12px} \
 							 .jqplot-yaxis-tick {text-align: right; width: 100%} \
-							 #loungestats_overlay {z-index: 9000; display: none; top: 0px; left: 0px; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.4); position: fixed} \
+							 #loungestats_overlay {z-index: 9000; display: none; top: 0px; left: 0px; width: 100%; height: 100vh; background-color: rgba(0, 0, 0, 0.4); position: fixed} \
 							 #loungestats_settings_title {text-align: center; font-size: 12px; height: 40px; border: 2px solid #DDD; border-top: none; background-color: #EEE; width: 100%; margin-top: -10px; -webkit-border-radius: 0 0 5px 5px; border-radius: 0 0 5px 5px; padding: 10px 5px 0 5px; -moz-box-sizing: border-box; -webkit-box-sizing: border-box; box-sizing: border-box;} \
 							 #loungestats_settingswindow {font-size: 13px; z-index: 9001; padding: 10px; -moz-box-sizing: border-box; -webkit-box-sizing: border-box; box-sizing: border-box; position: relative; background-color: white; left: 50%; top: 50%; width: 300px; margin-left: -151px; height: 420px; margin-top: -211px; -webkit-border-radius: 5px; border-radius: 5px; -webkit-box-shadow: 0 0 10px -5px #000; box-shadow: 0 0 10px -5px #000; border: 1px solid gray; overflow: hidden;-webkit-transition: all 250ms ease-in-out;-moz-transition: all 250ms ease-in-out;-ms-transition: all 250ms ease-in-out;-o-transition: all 250ms ease-in-out;transition: all 250ms ease-in-out;} \
 							 #loungestats_settingswindow.accounts {width: 500px; margin-left: -251px;} \
@@ -1034,7 +1015,7 @@ function init() {
 							 #loungestats_fullscreenbutton{margin-right: 29px !important; margin-top: -5px !important; height: 14px; z-index: 8998; position: relative;} \
 							 #loungestats_fullscreenbutton.fullsc{position: fixed;margin: 0 !important;right: 34px; top: -5px;} \
 							 #loungestats_profitgraph{position: relative; height: 400px; clear: left; z-index: 322;} \
-							 #loungestats_profitgraph.fullsc{background-color: #DDD;height: 100% !important;left: 0;margin: 0;position: fixed !important;top: 0;width: 100%;} \
+							 #loungestats_profitgraph.fullsc{background-color: #DDD;height: 100vh !important;left: 0;margin: 0;position: fixed !important;top: 0;width: 100%;} \
 							 #loungestats_settings_leftpanel{width: 278px; float: left;} \
 							 #loungestats_settings_rightpanel{width: 188px; float: left; margin-left: 11px;} \
 							 #loungestats_settings_panelcontainer{width: 500px;} \
