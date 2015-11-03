@@ -6,7 +6,7 @@
 // @include     http://dota2lounge.com/myprofile
 // @include     https://csgolounge.com/myprofile
 // @include     https://dota2lounge.com/myprofile
-// @version     0.3.7
+// @version     0.3.8
 // @require     http://loungestats.kinsi.me/dl/jquery-2.1.1.min.js
 // @require    	http://loungestats.kinsi.me/dl/jquery.jqplot.min.js
 // @require     http://loungestats.kinsi.me/dl/jqplot.cursor.min.js
@@ -17,6 +17,9 @@
 // @updateURL   http://loungestats.kinsi.me/dl/LoungeStats.user.js
 // @grant       GM_xmlhttpRequest
 // @grant       GM_addStyle
+// @grant       GM_getValue
+// @grant       GM_setValue
+// @grant       GM_listValues
 // ==/UserScript==
 
 // You are not allowed to share modified versions of this script, or use parts of it without the authors permission
@@ -28,26 +31,45 @@ var cleanparse = false;
 var inexactAlert = false;
 var bets = {};
 var version = GM_info.script.version;
-var newVersion = (localStorage['LoungeStats_lastversion'] != version);
+var newVersion = (GM_getValue('LoungeStats_lastversion') != version);
 
-var setting_method = localStorage['LoungeStats_setting_method'];
-var setting_currency = localStorage['LoungeStats_setting_currency'];
-var setting_bvalue = localStorage['LoungeStats_setting_bvalue'];
-var setting_xaxis = localStorage['LoungeStats_setting_xaxis'];
-var setting_debug = localStorage['LoungeStats_setting_debug'];
-var setting_beforedate = localStorage['LoungeStats_setting_beforedate'];
-var setting_domerge = localStorage['LoungeStats_setting_domerge'];
-var setting_hideclosed = localStorage['LoungeStats_setting_hideclosed'];
+if(localStorage['LoungeStats_lastversion'] && version == '0.3.8' && confirm("Thanks for updating to LoungeStats 0.3.8. In this update i switched the way i save settings / cache items to be more stable. Due do this, i will convert over the values from the old method to the new one now. Your browser might lag for up to a minute, depending on your computer and bet history size (This only has to be done once, click OK to start, or Cancel to not convert over the data)")) {
+	for(var lSKey in localStorage) {
+		if(lSKey.indexOf("LoungeStats") !== 0) continue;
+
+		if(lSKey == 'LoungeStats_accounts'){
+			GM_setValue(lSKey, JSON.stringify({aval:{'570': {}, '730': {}}, active:{'570': [], '730': []}}));
+		}else{
+			GM_setValue(lSKey.replace("LoungeStats_betcache", "LoungeStats_betcache_g"+app_id), localStorage[lSKey]);
+		}
+		//console.log("Converting "+lSKey+" from LocalStorage to GM Values.. ("+localStorage[lSKey]+")");
+
+		localStorage.removeItem(lSKey);
+	}
+
+	alert("Im sorry, but converting everything is not possible. All your cached bets and item prices are still there, you need to open LoungeStats with every account that was there before though once again for everything to show up.");
+
+	GM_setValue('LoungeStats_lastversion', version);
+}
+
+var setting_method = GM_getValue('LoungeStats_setting_method');
+var setting_currency = GM_getValue('LoungeStats_setting_currency');
+var setting_bvalue = GM_getValue('LoungeStats_setting_bvalue');
+var setting_xaxis = GM_getValue('LoungeStats_setting_xaxis');
+var setting_debug = GM_getValue('LoungeStats_setting_debug');
+var setting_beforedate = GM_getValue('LoungeStats_setting_beforedate');
+var setting_domerge = GM_getValue('LoungeStats_setting_domerge');
+var setting_hideclosed = GM_getValue('LoungeStats_setting_hideclosed');
 
 var loading = false;
 var user_steam64 = $('#profile .full:last-child input').val().split('=').pop();
-var accounts = {aval:{}, active:[]};
+var accounts = {aval:{'570': {}, '730': {}}, active:{'570': [], '730': []}};
 
-if('LoungeStats_accounts' in localStorage) accounts = JSON.parse(localStorage['LoungeStats_accounts']);
+if(GM_listValues().indexOf('LoungeStats_accounts') > -1) accounts = JSON.parse(GM_getValue('LoungeStats_accounts'));
 
 function addAcc(id, name) {
-	accounts['aval'][id] = name;
-	localStorage['LoungeStats_accounts'] = JSON.stringify(accounts);
+	accounts.aval[app_id][id] = name;
+	GM_setValue('LoungeStats_accounts', JSON.stringify(accounts));
 }
 
 var currencysymbol = '$';
@@ -76,10 +98,10 @@ function setCurrencySymbol(){
 }
 
 //Well, since you cant force the market price (exact algo) this has to do the trick.
-var curr_usd_eur = 1.147235;
-var curr_usd_gbp = 1.53315;
-var curr_usd_rub = 0.014988;
-var curr_usd_brd = 0.364372;
+var curr_usd_eur = 1.127095;
+var curr_usd_gbp = 1.521845;
+var curr_usd_rub = 0.019932;
+var curr_usd_brd = 0.328392;
 
 //http://stackoverflow.com/a/6700/3526458
 Object.size = function(obj) {
@@ -125,12 +147,14 @@ function parseLoungeBetHistory(html, callback) {
 	var cacheWeapons = {}; bets = {}; var donerequests = 0;
 	// Preparse, get all matches, all overal needed weapons and arrify them
 
+	var gmlvs = GM_listValues();
+
 	$($(doommeedd).find('tr:nth-child(3n+1)').get().reverse()).each(function(i, bet) {
 		var betid = bet.children[2].children[0].href.split('=').pop();
 
 		if(setting_debug == '1') console.log('Parsing match #' + betid);
 
-		if(!(('LoungeStats_betcache_s'+user_steam64+'_'+betid) in localStorage) || cleanparse || newVersion) {
+		if((gmlvs.indexOf('LoungeStats_betcache_g'+app_id+'_s'+user_steam64+'_'+betid) === -1) || cleanparse || newVersion) {
 			//Match wasnt cached, parse & cache...
 			var date = bet.children[6].textContent;
 			var matchoutcome = bet.children[1].children[0].classList[0];
@@ -159,13 +183,15 @@ function parseLoungeBetHistory(html, callback) {
 			//}
 			if(setting_debug == '1') console.log(tocache);
 
-			localStorage['LoungeStats_betcache_s'+user_steam64+'_'+betid] = JSON.stringify(tocache);
+			GM_setValue('LoungeStats_betcache_g'+app_id+'_s'+user_steam64+'_'+betid, JSON.stringify(tocache));
 		}
 	});
 
 	addAcc(user_steam64, $('#profile h1:first-child').text());
 
-	var useaccs = accounts.active;
+	console.log(accounts.active[app_id]);
+
+	var useaccs = accounts.active[app_id];
 
 	var bits = setting_beforedate.split('.');
 	var d = new Date(bits[2], bits[1]-1, bits[0]).getTime();
@@ -173,13 +199,16 @@ function parseLoungeBetHistory(html, callback) {
 	if(!setting_domerge || setting_domerge == '0') useaccs = [user_steam64];
 
 	for(var x in useaccs) {
-
 		var accid = useaccs[x];
-		for(var lSKey in localStorage) {
-			if(lSKey.indexOf('LoungeStats_betcache_s'+accid+'_') != -1) {
-				var parsedStorage = JSON.parse(localStorage[lSKey]);
+
+		for(var lSKey in gmlvs) {
+			lSKey = gmlvs[lSKey];
+
+			if(lSKey.indexOf('LoungeStats_betcache_g'+app_id+'_s'+accid+'_') != -1) {
+				var parsedStorage = JSON.parse(GM_getValue(lSKey));
 				//var tocache = {'matchid': betid, 'date': date, 'matchoutcome': matchoutcome, 'items': {'bet':[], 'won':[], 'lost':[]}};
 				//console.log(parsedStorage.matchoutcome);
+
 				if(parsedStorage.intdate > d && (setting_hideclosed == '0' || parsedStorage.matchoutcome != 'draw')) {
 					var key = parsedStorage.intdate.toString() + parsedStorage.matchid;
 					if(!(key in bets)) {
@@ -516,7 +545,7 @@ function generateStatsPage() {
 	}).removeAttr('id');
 
 	$('#loungestats_csvexport').click(function(){
-		var useaccs = (!setting_domerge || setting_domerge == '0') ? [user_steam64] : accounts.active;
+		var useaccs = (!setting_domerge || setting_domerge == '0') ? [user_steam64] : accounts.active[app_id];
 		var d = new Date();
 
 		var csvContent = 'data:application/csv; charset=charset=iso-8859-1, Users represented in Export(SteamID64):;="' + useaccs.join(', ') + '"\n \
@@ -721,7 +750,7 @@ function cacheItem(itemname, callback, exactfallback) {
 
 	GM_xmlhttpRequest({
 		method: 'GET',
-		url: 'http://steamcommunity.com/market/priceoverview/?currency=' + localStorage['LoungeStats_setting_currency'] + '&appid=' + app_id + '&market_hash_name=' + encodeURI(itemname),
+		url: 'http://steamcommunity.com/market/priceoverview/?currency=' + GM_getValue('LoungeStats_setting_currency') + '&appid=' + app_id + '&market_hash_name=' + encodeURI(itemname),
 		onload: function(response) {
 			if(response.status == 200) {
 				var responseParsed = JSON.parse(response.responseText);
@@ -731,7 +760,7 @@ function cacheItem(itemname, callback, exactfallback) {
 					if(setting_debug == '1') console.log(exactfallback);
 					for(loungetime in exactfallback){
 						var localKeyName = getItemKeyName(itemname, exactfallback[loungetime]);
-						localStorage.setItem(localKeyName, price);
+						GM_setValue(localKeyName, price);
 					}
 					if(setting_debug == '1') console.log('');
 					callback(true);
@@ -745,7 +774,7 @@ function cacheItem(itemname, callback, exactfallback) {
 
 					for(loungetime in exactfallback){
 						var localKeyName = getItemKeyName(itemname, exactfallback[loungetime]);
-						localStorage.setItem(localKeyName, price);
+						GM_setValue(localKeyName, price);
 					}
 					callback(true);
 					return;
@@ -757,7 +786,7 @@ function cacheItem(itemname, callback, exactfallback) {
 			if(setting_debug == '1') console.log("X.X");
 			for(loungetime in exactfallback){
 				var localKeyName = getItemKeyName(itemname, exactfallback[loungetime]);
-				localStorage.setItem(localKeyName, 0.0);
+				GM_setValue(localKeyName, 0.0);
 			}
 			callback(true);
 		}
@@ -796,7 +825,7 @@ function cacheItemsExact(itemname, loungetimes, callback) {
 								p = parseFloat(arr[i][1]);
 								inexact = !convToUsdBySym(p, curr[0]);
 
-								if((datadate >= betdate && (prev === null || prev < betdate)) || i == arr.length) {
+								if((datadate >= betdate && (prev === null || prev < betdate)) || i == arr.length-1) {
 									if(inexact && !inexactAlert) {
 										inexactAlert = true;
 										alert('For your Information. Since you are using the exact method you want exact prices. Because of this, i am alerting you that i cant provide exact prices for you sadly, the reason being that i dont know how to deal with your local currency. The best you can do is to select US$ as your currency, this will display values in your local currency. The alternative is to use the fast method because i can tell steam which currency i want the prices in for that, which i cant for the price history sadly. I\'m sorry for that');
@@ -822,7 +851,7 @@ function cacheItemsExact(itemname, loungetimes, callback) {
 										console.log('Parsed: ' + datadate + ' Requested: ' + loungetimes[loungetimei]);
 									}
 									if(setting_debug == '1') console.log('Parsed: ' + datadate + ' Requested: ' + loungetimes[loungetimei]);
-									localStorage[localKeyName] = p;
+									GM_setValue(localKeyName, p);
 									break;
 								}
 								prev = datadate;
@@ -844,7 +873,7 @@ function cacheItemsExact(itemname, loungetimes, callback) {
 		}
 	});
 }
-//Internal function for generating central localstorage key names
+//Internal function for generating central GM_listValues() key names
 function getItemKeyName(itemname, loungetime) {
 	if(loungetime && setting_method !== '0') {
 		var betdate = new Date(Date.parse(loungetime.replace(/-/g,' ') + ' +0'));
@@ -856,11 +885,11 @@ function getItemKeyName(itemname, loungetime) {
 
 function getItemPrice(itemname, loungetime) {
 	var localKeyName = getItemKeyName(itemname, loungetime);
-	if(localStorage[localKeyName]) {
+	if(GM_getValue(localKeyName)) {
 		if(loungetime && setting_method !== '0') {
-			return convertUsd(parseFloat(localStorage[localKeyName]));
+			return convertUsd(parseFloat(GM_getValue(localKeyName)));
 		}
-		return parseFloat(localStorage[localKeyName]);
+		return parseFloat(GM_getValue(localKeyName));
 	}
 	return false;
 }
@@ -871,10 +900,10 @@ function loadStats(clean) {
 		return;
 	}
 
-	if(typeof(Storage) == void(0)) {
-		$('#ajaxCont').html('Your browser does not seem to support localstorage, update it and try again.');
+	/*if(typeof(Storage) == void(0)) {
+		$('#ajaxCont').html('Your browser does not seem to support GM_listValues(), update it and try again.');
 		return;
-	}
+	}*/
 	else if(!setting_method) {
 		$('#ajaxCont').html('Please set up Loungestats first');
 		$('#loungestats_overlay').fadeIn(500);
@@ -895,7 +924,7 @@ function loadStats(clean) {
 												<img src="../img/load.gif" id="loading" style="margin: 0.75em 2%"> \
 											</div>');
 	if(newVersion) {
-		localStorage['LoungeStats_lastversion'] = version;
+		GM_setValue('LoungeStats_lastversion', version);
 		$('#ajaxCont').prepend('<div id="loungestats_updateinfo" class="bpheader">LoungeStats was updated to ' + version + '!<br/>Please make sure to check <a href="http://reddit.com/r/loungestats">the subreddit</a> to see what changes were made!</div>');
 	}
 
@@ -912,11 +941,11 @@ function loadStats(clean) {
 			multiaccthing = '<div>DotA Accounts</div>';
 		}
 
-		for(var i in accounts.aval) {
-			if(accounts.active.indexOf(i) > -1) {
-				multiaccthing += '<input type="checkbox" name="'+i+'" checked> "<a href="http://steamcommunity.com/profiles/'+i+'" target="_blank">'+accounts.aval[i]+'</a>"<br/>';
+		for(var i in accounts.aval[app_id]) {
+			if(accounts.active[app_id].indexOf(i) > -1) {
+				multiaccthing += '<input type="checkbox" name="'+i+'" checked> "<a href="http://steamcommunity.com/profiles/'+i+'" target="_blank">'+accounts.aval[app_id][i]+'</a>"<br/>';
 			} else {
-				multiaccthing += '<input type="checkbox" name="'+i+'"> "<a href="http://steamcommunity.com/profiles/'+i+'" target="_blank">'+accounts.aval[i]+'</a>"<br/>';
+				multiaccthing += '<input type="checkbox" name="'+i+'"> "<a href="http://steamcommunity.com/profiles/'+i+'" target="_blank">'+accounts.aval[app_id][i]+'</a>"<br/>';
 			}
 		}
 		$('#loungestats_mergepicks').html(multiaccthing);
@@ -950,26 +979,26 @@ function toggleFullscreen(jqplot) {
 
 //called when save is pressed in the settings
 function saveSettings() {
-	localStorage['LoungeStats_setting_method'] = $('#loungestats_method').val(); setting_method = localStorage['LoungeStats_setting_method'];
-	localStorage['LoungeStats_setting_currency'] = $('#loungestats_currency').val(); setting_currency = localStorage['LoungeStats_setting_currency'];
-	localStorage['LoungeStats_setting_bvalue'] = $('#loungestats_bgraph').val(); setting_bvalue = localStorage['LoungeStats_setting_bvalue'];
-	localStorage['LoungeStats_setting_xaxis'] = $('#loungestats_xaxis').val(); setting_xaxis = localStorage['LoungeStats_setting_xaxis'];
-	localStorage['LoungeStats_setting_debug'] = $('#loungestats_debug').val(); setting_debug = localStorage['LoungeStats_setting_debug'];
-	localStorage['LoungeStats_setting_domerge'] = $('#loungestats_domerge').val(); setting_domerge = localStorage['LoungeStats_setting_domerge'];
-	localStorage['LoungeStats_setting_hideclosed'] = $('#loungestats_hideclosed').val(); setting_hideclosed = localStorage['LoungeStats_setting_hideclosed'];
+	GM_setValue('LoungeStats_setting_method', $('#loungestats_method').val()); setting_method = GM_getValue('LoungeStats_setting_method');
+	GM_setValue('LoungeStats_setting_currency', $('#loungestats_currency').val()); setting_currency = GM_getValue('LoungeStats_setting_currency');
+	GM_setValue('LoungeStats_setting_bvalue', $('#loungestats_bgraph').val()); setting_bvalue = GM_getValue('LoungeStats_setting_bvalue');
+	GM_setValue('LoungeStats_setting_xaxis', $('#loungestats_xaxis').val()); setting_xaxis = GM_getValue('LoungeStats_setting_xaxis');
+	GM_setValue('LoungeStats_setting_debug', $('#loungestats_debug').val()); setting_debug = GM_getValue('LoungeStats_setting_debug');
+	GM_setValue('LoungeStats_setting_domerge', $('#loungestats_domerge').val()); setting_domerge = GM_getValue('LoungeStats_setting_domerge');
+	GM_setValue('LoungeStats_setting_hideclosed', $('#loungestats_hideclosed').val()); setting_hideclosed = GM_getValue('LoungeStats_setting_hideclosed');
 
 	if(isValidDate($('#loungestats_beforedate').val())){
-		localStorage['LoungeStats_setting_beforedate'] = $('#loungestats_beforedate').val(); setting_beforedate = localStorage['LoungeStats_setting_beforedate'];
+		GM_setValue('LoungeStats_setting_beforedate', $('#loungestats_beforedate').val()); setting_beforedate = GM_getValue('LoungeStats_setting_beforedate');
 	} else {
 		alert('The format of the given date is invalid! Use Day.Month.Year!');
 		return;
 	}
 
-	accounts.active = [];
+	accounts.active[app_id] = [];
 	$('#loungestats_mergepicks input').each(function(i,c) {
-		if(c.checked) accounts.active.push(c.name);
+		if(c.checked) accounts.active[app_id].push(c.name);
 	});
-	localStorage['LoungeStats_accounts'] = JSON.stringify(accounts);
+	GM_setValue('LoungeStats_accounts', JSON.stringify(accounts));
 
 	setCurrencySymbol();
 	$('#loungestats_overlay').fadeOut(500);
@@ -1084,11 +1113,12 @@ function init() {
 	if(setting_debug) $('#loungestats_debug').val(setting_debug);
 	if(setting_domerge) $('#loungestats_domerge').val(setting_domerge);
 	if(setting_hideclosed) $('#loungestats_hideclosed').val(setting_hideclosed);
+
 	if(setting_beforedate) {
 		$('#loungestats_beforedate').val(setting_beforedate);
 	} else {
 		$('#loungestats_beforedate').val('01.01.2000');
-		localStorage['LoungeStats_setting_beforedate'] = '01.01.2000';
+		GM_setValue('LoungeStats_setting_beforedate', '01.01.2000');
 		setting_beforedate = '01.01.2000';
 	}
 
