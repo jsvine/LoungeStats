@@ -4,13 +4,13 @@
 // @author			Kinsi http://reddit.com/u/kinsi55
 // @include			http://csgolounge.com/myprofile
 // @include     http://dota2lounge.com/myprofile
-// @version			0.2.2
+// @version			0.2.3
 // @require			http://bibabot.de/stuff/jquery-2.1.1.min.js
 // @require			http://bibabot.de/stuff/jquery.jqplot.min.js
 // @require			http://bibabot.de/stuff/jqplot.cursor.min.js
 // @require			http://bibabot.de/stuff/jqplot.dateAxisRenderer.min.js
 // @require			http://bibabot.de/stuff/jqplot.highlighter.min.js
-// @require			http://bibabot.de/stuff/datepickr.min.js
+// @require			http://bibabot.de/stuff/datepickr_mod.min.js
 // @downloadURL http://bibabot.de/stuff/LoungeStats.user.js
 // @updateURL		http://bibabot.de/stuff/LoungeStats.user.js
 // @grant				GM_xmlhttpRequest
@@ -25,7 +25,7 @@ var app_id = window.location.hostname == 'dota2lounge.com' ? '570' : '730';
 var cleanparse = false;
 var inexactAlert = false;
 var bets = {};
-var version = "0.2.2RC";
+var version = "0.2.3RC";
 
 var setting_method = localStorage['LoungeStats_setting_method'];
 var setting_currency = localStorage['LoungeStats_setting_currency'];
@@ -123,11 +123,11 @@ function parseLoungeBetHistory(html, callback) {
 
 		if(setting_debug == 1) console.log('Parsing match #' + betid);
 
-		if(!localStorage.hasOwnProperty('LoungeStats_betcache_s'+user_steam64+'_'+betid) || cleanparse) { //██████████████████████████████████████████████████████████████████!
+		if(!localStorage.hasOwnProperty('LoungeStats_betcache_s'+user_steam64+'_'+betid) || cleanparse) {
 			//Match wasnt cached, parse & cache...
 			var date = bet.children[6].textContent;
 			var matchoutcome = bet.children[1].children[0].classList[0];
-			var tocache = {'matchid': betid, 'date': date, 'matchoutcome': matchoutcome, 'items': {'bet':[], 'won':[], 'lost':[]}};
+			var tocache = {'matchid': betid, 'date': date, 'intdate': new Date(Date.parse(date.replace(/-/g,' ') + ' +0')).getTime(), 'matchoutcome': matchoutcome, 'items': {'bet':[], 'won':[], 'lost':[]}};
 
 			tocache['teams'] = [bet.children[2].children[0].textContent, bet.children[4].children[0].textContent];
 			tocache['winner'] = (bet.children[4].style["fontWeight"] == 'bold')+0;
@@ -158,7 +158,9 @@ function parseLoungeBetHistory(html, callback) {
 	var useaccs = accounts['active'];
 
 	var bits = setting_beforedate.split('.');
-  var d = new Date(bits[2], bits[1]-1, bits[0]);
+  var d = new Date(bits[2], bits[1]-1, bits[0]).getTime();
+
+
 
 	if(!setting_domerge || setting_domerge == 0) useaccs = [user_steam64];
 
@@ -169,16 +171,15 @@ function parseLoungeBetHistory(html, callback) {
 				var parsedStorage = JSON.parse(localStorage[lSKey]);
 				//var tocache = {'matchid': betid, 'date': date, 'matchoutcome': matchoutcome, 'items': {'bet':[], 'won':[]}};
 
-
-				if(new Date(parsedStorage['date']) > d) {
-					var key = Date.parse(new Date(parsedStorage['date'])) + parsedStorage['matchid'];
-					if(!bets.hasOwnProperty(parsedStorage['matchid'])) {
+				if(parsedStorage['intdate'] > d) {
+					var key = parsedStorage['intdate'].toString() + parsedStorage['matchid'];
+					if(!bets.hasOwnProperty(key)) {
 						bets[key] = parsedStorage;
 					} else {
 						//'items': {'bet':[], 'won':[], 'lost':[]}
-						bets[key]['items']['bet'] = bets[ parsedStorage['matchid'] ]['items']['bet'].concat(parsedStorage['items']['bet']);
-						bets[key]['items']['won'] = bets[ parsedStorage['matchid'] ]['items']['won'].concat(parsedStorage['items']['won']);
-						bets[key]['items']['lost'] = bets[ parsedStorage['matchid'] ]['items']['lost'].concat(parsedStorage['items']['lost']);
+						bets[key]['items']['bet'] = bets[key]['items']['bet'].concat(parsedStorage['items']['bet']);
+						bets[key]['items']['won'] = bets[key]['items']['won'].concat(parsedStorage['items']['won']);
+						bets[key]['items']['lost'] = bets[key]['items']['lost'].concat(parsedStorage['items']['lost']);
 					}
 				}
 			}
@@ -188,7 +189,7 @@ function parseLoungeBetHistory(html, callback) {
 	for(bet in bets) {
 		var dabet = bets[bet];
 
-		var itemarray = dabet['items']['bet'].concat(dabet['items']['lost']).concat(dabet['items']['lost']);
+		var itemarray = dabet['items']['bet'].concat(dabet['items']['won']).concat(dabet['items']['lost']);
 
 		for(i in itemarray) {
 			var itemname = itemarray[i];
@@ -234,13 +235,13 @@ function parseLoungeBetHistory(html, callback) {
 			eta = parseInt(eta);
 
 			if(eta >= 30){
-				eta += " Minutes, Better grab some coffee..";
+				eta += " Minute(s), Better grab some coffee..";
 			}else{
-				eta += " Minutes";
+				eta += " Minute(s)";
 			}
 
 			$('#loungestats_loadprogress').val(prog);
-			$('#loungestats_loadprogresslabel').html('(' + prog + '/' + cwlen + ')<br/>ETA: '+eta);
+			$('#loungestats_loadprogresslabel').html('(' + prog + '/' + cwlen + ')<br/>ETA: ~'+eta);
 		}, setting_method != 0);
 	}
 	else {
@@ -286,8 +287,15 @@ function generateStatsPage() {
 	//iterate trough bets array
 	var absoluteIndex = 0;
 	var betsKeys = Object.keys(bets).sort();
-	var firstDate = Date.parse(new Date(bets[betsKeys[0]]['date']));
-	var lasttDate = Date.parse(new Date(bets[betsKeys[betsKeys.length-1]]['date']));
+
+	if(betsKeys.length == 0){
+		$('#loungestats_datacontainer').html('Looks like you dont have any bets with the set criteria');
+		return;
+	}
+
+	var firstDate = bets[betsKeys[0]]['intdate'];
+	var lastDate = bets[betsKeys[betsKeys.length-1]]['intdate'];
+
 
 	for(var i in betsKeys) {
 		var b = bets[betsKeys[i]];
@@ -312,23 +320,31 @@ function generateStatsPage() {
 		}
 
 		//var tempwon = 0;
+		if(setting_debug == 1) console.log("#################################");
+		if(setting_debug == 1) console.log(">>>Winnings");
+		if(setting_debug == 1) console.log(b['items']['won']);
 		for(var item in b['items']['won']) {
 			var itemname = b['items']['won'][item];
 			var price = getItemPrice(itemname, b['date']);
+			if(setting_debug == 1) console.log(itemname + ": " + price + " (" + b['date'] + ")");
 			value += price;
 			overallWon += price;
 			//tempwon += price;
 		}
 
 		//var templost = 0;
+		if(setting_debug == 1) console.log(">>>Losses");
+		if(setting_debug == 1) console.log(b['items']['lost']);
+
 		for(var item in b['items']['lost']) {
 			var itemname = b['items']['lost'][item];
 			var price = getItemPrice(itemname, b['date']);
+			if(setting_debug == 1) console.log(itemname + ": " + price + " (" + b['date'] + ")");
 			value -= price;
 			overallLost += price;
 			//templost -= price;
 		}
-
+		if(setting_debug == 1) console.log("net change:" + value);
 		overallValue += value;
 
 		mergeMatchWin = (value >= 0);
@@ -383,7 +399,7 @@ function generateStatsPage() {
 
 	var boundary = parseInt(absoluteIndex * 0.05);
 
-	var xaxis_def = setting_xaxis == 0 ? {renderer:$.jqplot.DateAxisRenderer,tickOptions: {formatString: '%d %b %y'}, min: firstDate*0.9999,maxx: lasttDate*1.001} : {renderer: $.jqplot.LinearAxisRenderer, tickOptions: {formatString: '%i'}};
+	var xaxis_def = setting_xaxis == 0 ? {renderer:$.jqplot.DateAxisRenderer,tickOptions: {formatString: '%d %b %y'}, min: firstDate*0.9999,maxx: lastDate*1.0001} : {renderer: $.jqplot.LinearAxisRenderer, tickOptions: {formatString: '%i'}};
 
 	var plot = $.jqplot('pricehistory', [chartData, betData], {
 		title:{text: 'Overall profit over time'},
@@ -400,7 +416,7 @@ function generateStatsPage() {
 		grid: {gridLineColor: '#414141', borderColor: '#414141', background: '#373737'},
 		cursor: {show: true, zoom: true, showTooltip: false},
 		highlighter: {show: true, tooltipOffset: 20, fadeTooltip: true, yvalues: 4},
-		series:[{lineWidth:2, markerOptions:{show: false, style:'circle'}, highlighter: {formatString: '<strong>%s</strong><br>Overall Profit: %s<br>Value bet: %s<br>Value change: %s<br>Game: %s'}},
+		series:[{lineWidth:2, markerOptions:{show: false, style:'circle'}, highlighter: {formatString: '<strong>%s</strong><br>Overall Profit: %s<br>Value bet: %s<br>Value change: %s '  + currencysymbol + '<br>Game: %s'}},
 						{lineWidth:1, markerOptions:{show: false, style:'circle'}, highlighter: {formatString: '<strong>%s</strong><br>Value bet: %s<br>Game: %s'/*, tooltipLocation: 'sw'*/}}],
 		seriesColors: [ "#FF8A00", "#008A00" ]
 	});
@@ -420,7 +436,7 @@ function generateStatsPage() {
 	});
 
 	if(setting_xaxis == 0) {
-		$("#pricehistory").dblclick(function() {plot_zomx(plot, firstDate*0.9999, lasttDate*1.001); clearSelection()});
+		$("#pricehistory").dblclick(function() {plot_zomx(plot, firstDate*0.9999, lastDate*1.0001); clearSelection()});
 	}else{
 		//with the linearaxisrenderer, i cant pre-set minx, and maxx, lol.
 		plot_zomx(plot, -boundary, absoluteIndex+boundary);
@@ -478,7 +494,7 @@ function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback,
 			}
 		});
 	} else {
-	if(arrayoffset == 0) fastindex = 0;
+		if(arrayoffset == 0) fastindex = 0;
 		fastLooping = true;
 		while(activefast < 10 && fastindex < itemarraykeylist.length) {
 			item = itemarray[itemarraykeylist[fastindex]];
@@ -512,26 +528,24 @@ function cacheItem(itemname, callback, exactfallback) {
 			if(response.status == 200) {
 				var responseParsed = JSON.parse(response.responseText);
 				if(responseParsed.success == true && responseParsed.hasOwnProperty('median_price')) {
-					var price = responseParsed['median_price'].replace('&#36;','').replace('&#163;','').replace('&#8364;','').replace('p&#1091;&#1073;.','').replace(',', '.').trim();
+					var price = parseFloat(responseParsed['median_price'].replace('&#36;','').replace('&#163;','').replace('&#8364;','').replace('p&#1091;&#1073;.','').replace('&#82;','').replace(',', '.').trim());
 					if(setting_debug == 1) console.log('Cached item price of ' + itemname + ' | Price: ' + price);
 					localStorage.setItem(localKeyName, price);
 					callback(true);
 					return;
 				}// No median price seems existant, attempt to use the lowest price
 				else if(responseParsed.success == true && responseParsed.hasOwnProperty('lowest_price')) {
-					var price = parseFloat(responseParsed['lowest_price'].replace('&#36;','').replace('&#163;','').replace('&#8364;','').replace('p&#1091;&#1073;.','').replace(',', '.').trim());
-					if(responseParsed['lowest_price'].indexOf('&#36;') > -1) {
-						//hi
-					}
-					else if(responseParsed['lowest_price'].indexOf('&#163;') > -1) {
-						price *= curr_usd_gbp;
-					}
-					else if(responseParsed['lowest_price'].indexOf('&#8364;') > -1) {
-						price *= curr_usd_eur;
-					} else if(responseParsed['lowest_price'].indexOf('p&#1091;&#1073;') > -1) {
-						price *= curr_usd_rub;
-					} else if(responseParsed['lowest_price'].indexOf('&#82;&#36;') > -1) {
+					var price = parseFloat(responseParsed['lowest_price'].replace('&#36;','').replace('&#163;','').replace('&#8364;','').replace('p&#1091;&#1073;.','').replace('&#82;','').replace(',', '.').trim());
+					if(responseParsed['lowest_price'].indexOf('&#82;&#36;') > -1) {
 						price *= curr_usd_brd;
+					}else if(responseParsed['lowest_price'].indexOf('&#163;') > -1) {
+						price *= curr_usd_gbp;
+					}else if(responseParsed['lowest_price'].indexOf('&#8364;') > -1) {
+						price *= curr_usd_eur;
+					}else if(responseParsed['lowest_price'].indexOf('p&#1091;&#1073;') > -1) {
+						price *= curr_usd_rub;
+					}else if(responseParsed['lowest_price'].indexOf('&#36;') > -1) {
+						//hi
 					}
 
 					if(setting_debug == 1) console.log('Cached item price of ' + itemname + ' | Price: ' + price);
@@ -595,20 +609,17 @@ function cacheItemExact(itemname, loungetime, callback) {
 							datadate = new Date(Date.parse(arr[i][0]));
 							p = parseFloat(arr[i][1]);
 
-							if(curr[0].indexOf('&#36;') > -1) {
-								//hi
-							}
-							else if(curr[0].indexOf('&#163;') > -1) {
-								p *= curr_usd_gbp;
-							}
-							else if(curr[0].indexOf('&#8364;') > -1) {
-								p *= curr_usd_eur;
-							} else if(curr[0].indexOf('p&#1091;&#1073;') > -1) {
-								p *= curr_usd_rub;
-							} else if(curr[0].indexOf('&#82;&#36;') > -1) {
+							if(curr[0].indexOf('&#82;&#36;') > -1) {
 								p *= curr_usd_brd;
+							}else if(curr[0].indexOf('&#163;') > -1) {
+								p *= curr_usd_gbp;
+							}else if(curr[0].indexOf('&#8364;') > -1) {
+								p *= curr_usd_eur;
+							}else if(curr[0].indexOf('p&#1091;&#1073;') > -1) {
+								p *= curr_usd_rub;
+							}else if(curr[0].indexOf('&#36;') > -1) {
+								//hi
 							} else { inexact = true }
-
 
 							if(datadate >= betdate && (prev == null || prev < betdate)) {
 								if(inexact && !inexactAlert) {
@@ -688,11 +699,28 @@ function loadStats(clean) {
 											</div>');
 	if(localStorage['lastversion'] != version) {
 		localStorage['lastversion'] = version;
-		$('#ajaxCont').prepend('<div id="loungestats_updateinfo" class="bpheader">LoungeStats was updated to ' + version + '!<br/>Please check <a href="http://reddit.com/r/loungestats">the subreddit</a> to see what changes were made</div>');
+		$('#ajaxCont').prepend('<div id="loungestats_updateinfo" class="bpheader">LoungeStats was updated to ' + version + '!<br/>Please make sure to check <a href="http://reddit.com/r/loungestats">the subreddit</a> to see what changes were made!</div>');
 	}
 
 	$('#loungestats_reloadbutton').click(function() {loadStats(true)});
-	$('#loungestats_settingsbutton').click(function() {$('#loungestats_overlay').fadeIn(500)}).removeAttr('id');
+	$('#loungestats_settingsbutton').click(function() {
+        $('#loungestats_overlay').fadeIn(500);
+
+        if(app_id == 730) {
+            var multiaccthing = '<div>CS:GO Accounts</div>';
+        } else {
+            var multiaccthing = '<div>DotA Accounts</div>';
+        }
+
+        for(i in accounts['aval']) {
+            if(accounts['active'].indexOf(i) > -1) {
+                multiaccthing += '<input type="checkbox" name="'+i+'" checked> "<a href="http://steamcommunity.com/profiles/'+i+'" target="_blank">'+accounts['aval'][i]+'</a>"<br/>';
+            } else {
+                multiaccthing += '<input type="checkbox" name="'+i+'"> "<a href="http://steamcommunity.com/profiles/'+i+'" target="_blank">'+accounts['aval'][i]+'</a>"<br/>';
+            }
+        }
+        $("#loungestats_mergepicks").html(multiaccthing);
+    }).removeAttr('id');
 	loading = true;
 	getLoungeBetHistory(function(data) {
 		if(data != null) {
@@ -765,10 +793,6 @@ function saveSettings()
 
 //I know that gm scripts are called on the documentReady, i like having it like this nevertheless.
 function init() {
-	//See if should load in new conversion rates via yahoooooooooooooo api
-	//https://query.yahooapis.com/v1/public/yql?q=select%20id%2C%20Rate%20from%20yahoo.finance.xchange%20where%20pair%20in%20(%22EURUSD%22%2C%20%22GBPUSD%22%2C%20%22RUBUSD%22%2C%20%22BRLUSD%22)&format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&callback=
-
-
 	$('section:nth-child(2) div:nth-child(1)').append('<a id="loungestats_tabbutton" class="button">LoungeStats</a>');
 	GM_addStyle(".jqplot-highlighter-tooltip {background-color: #393938; border: 1px solid gray; padding: 5px; color: #ccc} \
 							 .jqplot-xaxis {margin-top: 5px; font-size: 12px} \
@@ -795,20 +819,6 @@ function init() {
 							 #loungestats_datecontainer{position: relative}");
 
 	GM_addStyle(".calendar {top: 5px !important; left: 108px !important; font-family: 'Trebuchet MS', Tahoma, Verdana, Arial, sans-serif !important;font-size: 0.9em !important;background-color: #EEE !important;color: #333 !important;border: 1px solid #DDD !important;-moz-border-radius: 4px !important;-webkit-border-radius: 4px !important;border-radius: 4px !important;padding: 0.2em !important;width: 14em !important;}.calendar .months {background-color: #F6AF3A !important;border: 1px solid #E78F08 !important;-moz-border-radius: 4px !important;-webkit-border-radius: 4px !important;border-radius: 4px !important;color: #FFF !important;padding: 0.2em !important;text-align: center !important;}.calendar .prev-month,.calendar .next-month {padding: 0 !important;}.calendar .prev-month {float: left !important;}.calendar .next-month {float: right !important;}.calendar .current-month {margin: 0 auto !important;}.calendar .months .prev-month,.calendar .months .next-month {color: #FFF !important;text-decoration: none !important;padding: 0 0.4em !important;-moz-border-radius: 4px !important;-webkit-border-radius: 4px !important;border-radius: 4px !important;cursor: pointer !important;}.calendar .months .prev-month:hover,.calendar .months .next-month:hover {background-color: #FDF5CE !important;color: #C77405 !important;}.calendar table {border-collapse: collapse !important;padding: 0 !important;font-size: 0.8em !important;width: 100% !important;}.calendar th {text-align: center !important; color: black !important;}.calendar td {text-align: right !important;padding: 1px !important;width: 14.3% !important;}.calendar tr{border: none !important; background: none !important;}.calendar td span {display: block !important;color: #1C94C4 !important;background-color: #F6F6F6 !important;border: 1px solid #CCC !important;text-decoration: none !important;padding: 0.2em !important;cursor: pointer !important;}.calendar td span:hover {color: #C77405 !important;background-color: #FDF5CE !important;border: 1px solid #FBCB09 !important;}.calendar td.today span {background-color: #FFF0A5 !important;border: 1px solid #FED22F !important;color: #363636 !important;}")
-
-	if(app_id == 730) {
-		var multiaccthing = '<div>CS:GO Accounts</div>';
-	} else {
-		var multiaccthing = '<div>DotA Accounts</div>';
-	}
-
-	for(i in accounts['aval']) {
-		if(accounts['active'].indexOf(i) > -1) {
-			multiaccthing += '<input type="checkbox" name="'+i+'" checked> "<a href="http://steamcommunity.com/profiles/'+i+'" target="_blank">'+accounts['aval'][i]+'</a>"<br/>';
-		} else {
-			multiaccthing += '<input type="checkbox" name="'+i+'"> "<a href="http://steamcommunity.com/profiles/'+i+'" target="_blank">'+accounts['aval'][i]+'</a>"<br/>';
-		}
-	}
 
 	$('body').append('<div id="loungestats_overlay"> \
 		<div id="loungestats_settingswindow"'+((setting_domerge == 1) ? ' class="accounts"' : '')+'> \
@@ -839,7 +849,7 @@ function init() {
 						<option value="0">No</option> \
 						<option value="1">Yes</option> \
 					</select><br> \
-					Exclude bets before:<br> \
+					Exclude bets before <a class="info">?<p class="infobox"><br>Any bet that happened before the given date will be excluded. To disable this just pick any date before you started betting(e.g. set the year to 2000 or something)</p></a>:<br> \
 					<div id="loungestats_datecontainer"> \
 						<input id="loungestats_beforedate"><br> \
 					</div> \
@@ -856,9 +866,7 @@ function init() {
 				</div> \
 				<div id="loungestats_settings_rightpanel"> \
 					Accounts to merge <a class="info">?<p class="infobox"><br>Since you chose to merge accounts, select all acounts you want to be merged in the graph(The current one is NOT automatically included!)</p></a>:<br> \
-					<div id="loungestats_mergepicks"> \
-						'+multiaccthing+' \
-					</div> \
+					<div id="loungestats_mergepicks"></div> \
 				</div> \
 			</div> \
 			<div style="position: absolute; bottom: 10px;"> \
