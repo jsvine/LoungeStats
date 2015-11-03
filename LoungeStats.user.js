@@ -4,7 +4,7 @@
 // @author			Kinsi http://reddit.com/u/kinsi55
 // @include			http://csgolounge.com/myprofile
 // @include     http://dota2lounge.com/myprofile
-// @version			0.2.5
+// @version			0.2.6
 // @require			http://bibabot.de/stuff/jquery-2.1.1.min.js
 // @require			http://bibabot.de/stuff/jquery.jqplot.min.js
 // @require			http://bibabot.de/stuff/jqplot.cursor.min.js
@@ -25,7 +25,7 @@ var app_id = window.location.hostname == 'dota2lounge.com' ? '570' : '730';
 var cleanparse = false;
 var inexactAlert = false;
 var bets = {};
-var version = "0.2.5RC";
+var version = "0.2.6RC";
 var newVersion = (localStorage['LoungeStats_lastversion'] != version);
 
 var setting_method = localStorage['LoungeStats_setting_method'];
@@ -115,7 +115,7 @@ function getLoungeBetHistory(callback) {
 
 function parseLoungeBetHistory(html, callback) {
 	var doommeedd = $.parseHTML(html);
-	var cacheWeapons = {}; var bets = {}; var donerequests = 0;
+	var cacheWeapons = {}; bets = {}; var donerequests = 0;
 
 	// Preparse, get all matches, all overal needed weapons and arrify them
 
