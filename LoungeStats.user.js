@@ -4,15 +4,17 @@
 // @author      Kinsi http://reddit.com/u/kinsi55
 // @include     http://csgolounge.com/myprofile
 // @include     http://dota2lounge.com/myprofile
-// @version     0.3.6
-// @require     http://bibabot.de/stuff/jquery-2.1.1.min.js
-// @require     http://bibabot.de/stuff/jquery.jqplot.min.js
-// @require     http://bibabot.de/stuff/jqplot.cursor.min.js
-// @require     http://bibabot.de/stuff/jqplot.dateAxisRenderer.min.js
-// @require     http://bibabot.de/stuff/jqplot.highlighter.min.js
-// @require     http://bibabot.de/stuff/datepickr_mod.min.js
-// @downloadURL http://bibabot.de/stuff/LoungeStats.user.js
-// @updateURL   http://bibabot.de/stuff/LoungeStats.user.js
+// @include     https://csgolounge.com/myprofile
+// @include     https://dota2lounge.com/myprofile
+// @version     0.3.7
+// @require     http://loungestats.kinsi.me/dl/jquery-2.1.1.min.js
+// @require    	http://loungestats.kinsi.me/dl/jquery.jqplot.min.js
+// @require     http://loungestats.kinsi.me/dl/jqplot.cursor.min.js
+// @require    	http://loungestats.kinsi.me/dl/jqplot.dateAxisRenderer.min.js
+// @require     http://loungestats.kinsi.me/dl/jqplot.highlighter.min.js
+// @require     http://loungestats.kinsi.me/dl/datepickr_mod.min.js
+// @downloadURL http://loungestats.kinsi.me/dl/LoungeStats.user.js
+// @updateURL   http://loungestats.kinsi.me/dl/LoungeStats.user.js
 // @grant       GM_xmlhttpRequest
 // @grant       GM_addStyle
 // ==/UserScript==
@@ -21,11 +23,11 @@
 // You are not allowed to sell the whole, or parts of this script
 // Copyright belongs to "Kinsi" (user Kinsi55 on reddit, /id/kinsi on steam)
 
-var app_id = window.location.hostname == 'dota2lounge.com' ? '570' : '730';
+var app_id = (window.location.hostname == 'dota2lounge.com' ? '570' : '730');
 var cleanparse = false;
 var inexactAlert = false;
 var bets = {};
-var version = '0.3.6RC';
+var version = GM_info.script.version;
 var newVersion = (localStorage['LoungeStats_lastversion'] != version);
 
 var setting_method = localStorage['LoungeStats_setting_method'];
@@ -35,6 +37,7 @@ var setting_xaxis = localStorage['LoungeStats_setting_xaxis'];
 var setting_debug = localStorage['LoungeStats_setting_debug'];
 var setting_beforedate = localStorage['LoungeStats_setting_beforedate'];
 var setting_domerge = localStorage['LoungeStats_setting_domerge'];
+var setting_hideclosed = localStorage['LoungeStats_setting_hideclosed'];
 
 var loading = false;
 var user_steam64 = $('#profile .full:last-child input').val().split('=').pop();
@@ -73,10 +76,10 @@ function setCurrencySymbol(){
 }
 
 //Well, since you cant force the market price (exact algo) this has to do the trick.
-var curr_usd_eur = 1.266215;
-var curr_usd_gbp = 1.603485;
-var curr_usd_rub = 0.02423;
-var curr_usd_brd = 0.403356;
+var curr_usd_eur = 1.147235;
+var curr_usd_gbp = 1.53315;
+var curr_usd_rub = 0.014988;
+var curr_usd_brd = 0.364372;
 
 //http://stackoverflow.com/a/6700/3526458
 Object.size = function(obj) {
@@ -102,35 +105,24 @@ function isValidDate(s) {
 }
 
 function getLoungeBetHistory(callback) {
-
-	if(app_id == '730') {
-		$.ajax({
-			url: 'ajax/betHistory.php',
-			type: 'POST',
-			success: function(data) {callback(data);},
-			error: function() {callback(null);}
-		});
-	} else {
-		$.ajax({
-			url: 'ajax/betHistory.php',
-			type: 'POST',
-			success: function(data) {
-				$.ajax({
-					url: 'ajax/betHistoryArchives.php',
-					type: 'POST',
-					success: function(dataArchived) {callback(data.split('</tbody>')[0]+dataArchived.split('<tbody>')[1]);},
-					error: function() {callback(null);}
-				});
-			},
-			error: function() {callback(null);}
-		});
-	}
+	$.ajax({
+		url: 'ajax/betHistory.php',
+		type: 'POST',
+		success: function(data) {
+			$.ajax({
+				url: 'ajax/betHistoryArchives.php',
+				type: 'POST',
+				success: function(dataArchived) {callback(data.split('</tbody>')[0]+dataArchived.split('<tbody>')[1]);},
+				error: function() {callback(null);}
+			});
+		},
+		error: function() {callback(null);}
+	});
 }
 
 function parseLoungeBetHistory(html, callback) {
 	var doommeedd = $.parseHTML(html);
 	var cacheWeapons = {}; bets = {}; var donerequests = 0;
-
 	// Preparse, get all matches, all overal needed weapons and arrify them
 
 	$($(doommeedd).find('tr:nth-child(3n+1)').get().reverse()).each(function(i, bet) {
@@ -181,13 +173,14 @@ function parseLoungeBetHistory(html, callback) {
 	if(!setting_domerge || setting_domerge == '0') useaccs = [user_steam64];
 
 	for(var x in useaccs) {
+
 		var accid = useaccs[x];
 		for(var lSKey in localStorage) {
 			if(lSKey.indexOf('LoungeStats_betcache_s'+accid+'_') != -1) {
 				var parsedStorage = JSON.parse(localStorage[lSKey]);
 				//var tocache = {'matchid': betid, 'date': date, 'matchoutcome': matchoutcome, 'items': {'bet':[], 'won':[], 'lost':[]}};
-
-				if(parsedStorage.intdate > d) {
+				//console.log(parsedStorage.matchoutcome);
+				if(parsedStorage.intdate > d && (setting_hideclosed == '0' || parsedStorage.matchoutcome != 'draw')) {
 					var key = parsedStorage.intdate.toString() + parsedStorage.matchid;
 					if(!(key in bets)) {
 						bets[key] = parsedStorage;
@@ -219,7 +212,7 @@ function parseLoungeBetHistory(html, callback) {
 
 			if(cleanparse || !getItemPrice(itemname, date)) { /*|| (!(localKeyName in cacheWeapons)*/
 				//Price of an item is needed thats not cached yet, add it to cache que
-				if(setting_debug == '1') console.log('Added ' + itemname + ' To cache que...');
+				if(setting_debug == '1') console.log('Added ' + itemname + ' To cache queue...');
 				if(!cacheWeapons[itemname]) cacheWeapons[itemname] = [];
 				if((setting_method !== '0' && cacheWeapons[itemname].indexOf(date) == -1) || cacheWeapons[itemname].length === 0) cacheWeapons[itemname].push(date);
 				//cacheWeapons[localKeyName] = [itemname, date];
@@ -689,6 +682,39 @@ function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback,
 	}
 }
 
+//Converting usd to other currencies using static conversion rates (Thanks GabeN)
+function convertUsd(usd) {
+	if(usd < 0.02) usd = 0.02;
+	if(setting_currency == '3') {
+		return usd / curr_usd_eur;
+	}
+	else if(setting_currency == '2') {
+		return usd / curr_usd_gbp;
+	}
+	else if(setting_currency == '5') {
+		return usd / curr_usd_rub;
+	}
+	else if(setting_currency == '7') {
+		return usd / curr_usd_brd;
+	}
+	return usd;
+}
+
+function convToUsdBySym(f, str){
+	if(str.indexOf('&#82;&#36;') > -1) {
+		f *= curr_usd_brd;
+	}else if(str.indexOf('&#163;') > -1) {
+		f *= curr_usd_gbp;
+	}else if(str.indexOf('&#8364;') > -1) {
+		f *= curr_usd_eur;
+	}else if(str.indexOf('p&#1091;&#1073;') > -1) {
+		f *= curr_usd_rub;
+	}else if(str.indexOf('&#36;') > -1) {
+		//hi
+	} else { return false }
+	return true;
+}
+
 function cacheItem(itemname, callback, exactfallback) {
 	if(setting_debug == '1') console.log('Caching item price of ' + itemname + '...>>>>>>>>>>>>>>>>>>>>>>>>>>>');
 	if(setting_debug == '1') console.log(getItemKeyName(itemname, ""));
@@ -713,24 +739,14 @@ function cacheItem(itemname, callback, exactfallback) {
 				}// No median price seems existant, attempt to use the lowest price
 				else if(responseParsed.success == true && 'lowest_price' in responseParsed) {
 					var price = parseFloat(responseParsed['lowest_price'].replace('&#36;','').replace('&#163;','').replace('&#8364;','').replace('p&#1091;&#1073;.','').replace('&#82;','').replace(',', '.').trim());
-					if(responseParsed['lowest_price'].indexOf('&#82;&#36;') > -1) {
-						price *= curr_usd_brd;
-					}else if(responseParsed['lowest_price'].indexOf('&#163;') > -1) {
-						price *= curr_usd_gbp;
-					}else if(responseParsed['lowest_price'].indexOf('&#8364;') > -1) {
-						price *= curr_usd_eur;
-					}else if(responseParsed['lowest_price'].indexOf('p&#1091;&#1073;') > -1) {
-						price *= curr_usd_rub;
-					}else if(responseParsed['lowest_price'].indexOf('&#36;') > -1) {
-						//hi
-					}
+					convToUsdBySym(price, responseParsed['lowest_price']);
+
 					if(setting_debug == '1') console.log('Cached item price of ' + itemname + ' | Price: ' + price);
 
 					for(loungetime in exactfallback){
 						var localKeyName = getItemKeyName(itemname, exactfallback[loungetime]);
 						localStorage.setItem(localKeyName, price);
 					}
-					console.log('');console.log('');
 					callback(true);
 					return;
 				}// No lowest price seems existant, assume price as 0 since i cant do anything else really
@@ -746,24 +762,6 @@ function cacheItem(itemname, callback, exactfallback) {
 			callback(true);
 		}
 	});
-}
-
-//Converting usd to other currencies using static conversion rates (Thanks GabeN)
-function convertUsd(usd) {
-	if(usd < 0.02) usd = 0.02;
-	if(setting_currency == '3') {
-		return usd / curr_usd_eur;
-	}
-	else if(setting_currency == '2') {
-		return usd / curr_usd_gbp;
-	}
-	else if(setting_currency == '5') {
-		return usd / curr_usd_rub;
-	}
-	else if(setting_currency == '7') {
-		return usd / curr_usd_brd;
-	}
-	return usd;
 }
 
 function cacheItemsExact(itemname, loungetimes, callback) {
@@ -783,7 +781,6 @@ function cacheItemsExact(itemname, loungetimes, callback) {
 				if(rgx) {
 					var arr = JSON.parse('[[' + rgx[1] + ']]');
 
-
 					if(arr !== null) {
 						for(var loungetimei in loungetimes){
 							var localKeyName = getItemKeyName(itemname, loungetimes[loungetimei]);
@@ -792,36 +789,44 @@ function cacheItemsExact(itemname, loungetimes, callback) {
 							var prev = null;
 							//and iterate trough it here if it was found
 							var p = 0.0;
+							var prevp = 0.0;
 							var datadate = null;
 							for(var i in arr) {
 								datadate = new Date(Date.parse(arr[i][0]));
 								p = parseFloat(arr[i][1]);
+								inexact = !convToUsdBySym(p, curr[0]);
 
-								if(curr[0].indexOf('&#82;&#36;') > -1) {
-									p *= curr_usd_brd;
-								}else if(curr[0].indexOf('&#163;') > -1) {
-									p *= curr_usd_gbp;
-								}else if(curr[0].indexOf('&#8364;') > -1) {
-									p *= curr_usd_eur;
-								}else if(curr[0].indexOf('p&#1091;&#1073;') > -1) {
-									p *= curr_usd_rub;
-								}else if(curr[0].indexOf('&#36;') > -1) {
-									//hi
-								} else { inexact = true; }
-
-								if(datadate >= betdate && (prev === null || prev < betdate)) {
+								if((datadate >= betdate && (prev === null || prev < betdate)) || i == arr.length) {
 									if(inexact && !inexactAlert) {
 										inexactAlert = true;
 										alert('For your Information. Since you are using the exact method you want exact prices. Because of this, i am alerting you that i cant provide exact prices for you sadly, the reason being that i dont know how to deal with your local currency. The best you can do is to select US$ as your currency, this will display values in your local currency. The alternative is to use the fast method because i can tell steam which currency i want the prices in for that, which i cant for the price history sadly. I\'m sorry for that');
 									}
+
+									if(prevp > 0.0 && p/prevp >= 3.0){
+										if((arr.length - i) >= 3){
+											var tempp = parseFloat(arr[parseInt(i)+3][1]);
+											convToUsdBySym(tempp, curr[0]);
+
+											if(p/tempp >= 3.0){
+												p = (prevp + tempp) /2;
+												datadate = datadate.toString + "(AVGD +3)";
+											}
+										}else{
+											var tempp = parseFloat(arr[parseInt(i)-3][1]);
+											convToUsdBySym(tempp, curr[0]);
+											if(p/tempp >= 3.0){
+												p = (prevp + tempp) /2;
+												datadate = datadate.toString + "(AVGD -3)";
+											}
+										}
+										console.log('Parsed: ' + datadate + ' Requested: ' + loungetimes[loungetimei]);
+									}
 									if(setting_debug == '1') console.log('Parsed: ' + datadate + ' Requested: ' + loungetimes[loungetimei]);
 									localStorage[localKeyName] = p;
+									break;
 								}
 								prev = datadate;
-							}
-							if(!localStorage[localKeyName]){
-								if(setting_debug == '1') console.log('Parsed: ' + datadate + ' Requested: ' + loungetimes[loungetimei]);
-								localStorage[localKeyName] = p;
+								prevp = p;
 							}
 						}
 						callback(true);
@@ -951,6 +956,7 @@ function saveSettings() {
 	localStorage['LoungeStats_setting_xaxis'] = $('#loungestats_xaxis').val(); setting_xaxis = localStorage['LoungeStats_setting_xaxis'];
 	localStorage['LoungeStats_setting_debug'] = $('#loungestats_debug').val(); setting_debug = localStorage['LoungeStats_setting_debug'];
 	localStorage['LoungeStats_setting_domerge'] = $('#loungestats_domerge').val(); setting_domerge = localStorage['LoungeStats_setting_domerge'];
+	localStorage['LoungeStats_setting_hideclosed'] = $('#loungestats_hideclosed').val(); setting_hideclosed = localStorage['LoungeStats_setting_hideclosed'];
 
 	if(isValidDate($('#loungestats_beforedate').val())){
 		localStorage['LoungeStats_setting_beforedate'] = $('#loungestats_beforedate').val(); setting_beforedate = localStorage['LoungeStats_setting_beforedate'];
@@ -981,7 +987,7 @@ function init() {
 							 #loungestats_settings_title {text-align: center; font-size: 12px; height: 40px; border: 2px solid #DDD; border-top: none; background-color: #EEE; width: 100%; margin-top: -10px; -webkit-border-radius: 0 0 5px 5px; border-radius: 0 0 5px 5px; padding: 10px 5px 0 5px; -moz-box-sizing: border-box; -webkit-box-sizing: border-box; box-sizing: border-box;} \
 							 #loungestats_settingswindow {font-size: 13px; z-index: 9001; padding: 10px; -moz-box-sizing: border-box; -webkit-box-sizing: border-box; box-sizing: border-box; position: relative; background-color: white; left: 50%; top: 50%; width: 300px; margin-left: -151px; height: 420px; margin-top: -211px; -webkit-border-radius: 5px; border-radius: 5px; -webkit-box-shadow: 0 0 10px -5px #000; box-shadow: 0 0 10px -5px #000; border: 1px solid gray; overflow: hidden;-webkit-transition: all 250ms ease-in-out;-moz-transition: all 250ms ease-in-out;-ms-transition: all 250ms ease-in-out;-o-transition: all 250ms ease-in-out;transition: all 250ms ease-in-out;} \
 							 #loungestats_settingswindow.accounts {width: 500px; margin-left: -251px;} \
-							 #loungestats_settings_leftpanel select, #loungestats_settings_leftpanel input{margin: 5px 0; width: 100%; height: 22px !important; padding: 0;} \
+							 #loungestats_settings_leftpanel select, #loungestats_settings_leftpanel input{margin: 3px 0; width: 100%; height: 22px !important; padding: 0;} \
 							 #loungestats_settings_leftpanel input{width: 274px;} \
 							 #loungestats_fullscreenbutton{margin-right: 29px !important; margin-top: -5px !important; height: 14px; z-index: 8998; position: relative;} \
 							 #loungestats_fullscreenbutton.fullsc{position: fixed;margin: 0 !important;right: 34px; top: -5px;} \
@@ -1040,6 +1046,11 @@ function init() {
 						<option value="0">Date</option> \
 						<option value="1">Incrementing</option> \
 					</select><br> \
+					Dont show Closed bets:<br> \
+					<select id="loungestats_hideclosed"> \
+						<option value="0">No</option> \
+						<option value="1">Yes</option> \
+					</select><br> \
 					Debug mode:<br> \
 					<select id="loungestats_debug"> \
 						<option value="0">Off</option> \
@@ -1072,6 +1083,7 @@ function init() {
 	if(setting_xaxis) $('#loungestats_xaxis').val(setting_xaxis);
 	if(setting_debug) $('#loungestats_debug').val(setting_debug);
 	if(setting_domerge) $('#loungestats_domerge').val(setting_domerge);
+	if(setting_hideclosed) $('#loungestats_hideclosed').val(setting_hideclosed);
 	if(setting_beforedate) {
 		$('#loungestats_beforedate').val(setting_beforedate);
 	} else {
