@@ -4,7 +4,7 @@
 // @author      Kinsi http://reddit.com/u/kinsi55
 // @include     http://csgolounge.com/myprofile
 // @include     http://dota2lounge.com/myprofile
-// @version     0.3.5
+// @version     0.3.6
 // @require     http://bibabot.de/stuff/jquery-2.1.1.min.js
 // @require     http://bibabot.de/stuff/jquery.jqplot.min.js
 // @require     http://bibabot.de/stuff/jqplot.cursor.min.js
@@ -25,7 +25,7 @@ var app_id = window.location.hostname == 'dota2lounge.com' ? '570' : '730';
 var cleanparse = false;
 var inexactAlert = false;
 var bets = {};
-var version = '0.3.5RC';
+var version = '0.3.6RC';
 var newVersion = (localStorage['LoungeStats_lastversion'] != version);
 
 var setting_method = localStorage['LoungeStats_setting_method'];
@@ -48,15 +48,28 @@ function addAcc(id, name) {
 }
 
 var currencysymbol = '$';
+var currencyText = 'USD';
 
-if(setting_currency == '3') {
-	currencysymbol = '€';
-}
-else if(setting_currency == '2') {
-	currencysymbol = '£';
-}
-else if(setting_currency == '5') {
-	currencysymbol = 'р';
+function setCurrencySymbol(){
+	if(setting_currency == '3') {
+		currencysymbol = '€';
+		currencyText = 'EUR';
+	}
+	else if(setting_currency == '2') {
+		currencysymbol = '£';
+		currencyText = 'GBP';
+	}
+	else if(setting_currency == '5') {
+		currencysymbol = 'p';
+		currencyText = 'RUB';
+	}
+	else if(setting_currency == '1') {
+		currencysymbol = '$';
+		currencyText = 'USD';
+	} else {
+		currencysymbol = 'R$';
+		currencyText = 'BRL';
+	}
 }
 
 //Well, since you cant force the market price (exact algo) this has to do the trick.
@@ -129,6 +142,7 @@ function parseLoungeBetHistory(html, callback) {
 			//Match wasnt cached, parse & cache...
 			var date = bet.children[6].textContent;
 			var matchoutcome = bet.children[1].children[0].classList[0];
+			if(!matchoutcome) matchoutcome = "draw";
 			var tocache = {'matchid': betid, 'date': date, 'intdate': new Date(Date.parse(date.replace(/-/g,' ') + ' +0')).getTime(), 'matchoutcome': matchoutcome, 'items': {'bet':[], 'won':[], 'lost':[]}};
 
 			tocache.teams = [bet.children[2].children[0].textContent, bet.children[4].children[0].textContent];
@@ -141,7 +155,7 @@ function parseLoungeBetHistory(html, callback) {
 			$(betItems).each(function(i, item) {
 				var itemname = item.textContent.trim();
 				tocache.items.bet.push(itemname);
-				if(wonItems.length === 0 && matchoutcome && matchoutcome != 'won'/*matchoutcome == 'lost' Lounge admins are retarded*/) {
+				if(wonItems.length === 0 && matchoutcome && matchoutcome != 'won' && matchoutcome != 'draw'/*matchoutcome == 'lost' Lounge admins are retarded*/) {
 					tocache.items.lost.push(itemname);
 				}
 			});
@@ -261,12 +275,29 @@ function parseLoungeBetHistory(html, callback) {
 }
 
 function plot_zomx(plot, minx, maxx) {
-	plot.replot({ axes: {
-		xaxis: {
-			min: minx,
-			max: maxx
-		}
-	}});
+	if(!minx){
+		plot.replot({ axes: {
+			xaxis: {
+				min: plot.axes.xaxis.min,
+				max: plot.axes.xaxis.max
+			},
+			yaxis: {
+				min: plot.axes.yaxis.min,
+				max: plot.axes.yaxis.max
+			},
+		}});
+	}else{
+		plot.replot({ axes: {
+			xaxis: {
+				min: minx,
+				max: maxx
+			},
+			yaxis: {
+				min: null,
+				max: null
+			}
+		}});
+	}
 	/*$('#loungestats_stats_text').html('<div id="loungestats_stats_text"><hr>Overall value of items won: ' + overallWon.toFixed(2) + ' ' + currencysymbol);
 	$('#loungestats_stats_text').append('<br>Overall value of items lost: ' + overallLost.toFixed(2) + ' ' + currencysymbol);
 	$('#loungestats_stats_text').append('<br>Overall won bets: ' + overallWonCount + '/' + parseInt(overallWonCount + overallLostCount) + ' (' + parseInt(100/parseInt(overallWonCount + overallLostCount)*parseInt(overallWonCount)) + '%)');
@@ -275,6 +306,12 @@ function plot_zomx(plot, minx, maxx) {
 	$('#loungestats_stats_text').append('<br>Highest loss: ' + biggestloss.toFixed(2) + ' ' + currencysymbol + '<a href="/match?m=' + biggestlossid + '"> (Match link)</a>');
 	$('#loungestats_stats_text').append('<br>Longest losing streak: ' + losestreaklast + '<a id="loungestats_zoonon_lls" href="javascript:void(0)"> (Show on plot)</a>');
 	$('#loungestats_stats_text').append('<br>Longest winning streak: ' + winstreaklast + '<a id="loungestats_zoonon_lws" href="javascript:void(0)"> (Show on plot)</a></div>');*/
+}
+
+function forceExcelDecimal(f, comma) {
+	f = parseFloat(f).toFixed(2);
+	if(comma) f = f.replace('.',',');
+	return f;
 }
 
 function generateStatsPage() {
@@ -366,6 +403,7 @@ function generateStatsPage() {
 		overallValue += value;
 
 		mergeMatchWin = (value >= 0);
+		var truevalue = value.toFixed(2);
 
 		if(last != mergeMatchWin && wonOrlost) {
 			winstreaktemp = 0;
@@ -404,7 +442,7 @@ function generateStatsPage() {
 
 		if(setting_debug == '1') console.log('node(' + b.date + ')->' + overallValue);
 
-		chartData.push([setting_xaxis == '0' ? b.date : absoluteIndex, parseFloat(overallValue.toFixed(2)), betValue, value, teamString]);
+		chartData.push([setting_xaxis == '0' ? b.date : absoluteIndex, parseFloat(overallValue.toFixed(2)), betValue, value, teamString, truevalue]);
 		if(setting_bvalue == 1) betData.push([setting_xaxis == '0' ? b.date : absoluteIndex, betValue, teamString]);
 		absoluteIndex++;
 	}
@@ -461,10 +499,10 @@ function generateStatsPage() {
 		$('#loungestats_resetzoombutton').click(function() {plot_zomx(plot, -boundary, absoluteIndex+boundary);});
 	}
 
-	$('#loungestats_fullscreenbutton').click(function() {toggleFullscreen(plot);});
-	$('#loungestats_resetzoombutton, #loungestats_screenshotbutton, #loungestats_reloadbutton').show();
+	$('#loungestats_fullscreenbutton').click(function() {toggleFullscreen(plot);plot_zomx(plot);});
+	$('.hideuntilready').removeClass("hideuntilready");
 
-	$(window).on('resize', function() {plot.replot()});
+	$(window).on('resize', function() {plot.replot();});
 
 	$('#loungestats_datacontainer').append('<div id="loungestats_stats_text"></div>');
 
@@ -484,14 +522,38 @@ function generateStatsPage() {
 		plot_zomx(plot,chartData[losestreakstart][0],chartData[losestreakstart+losestreaklast][0]);
 	}).removeAttr('id');
 
+	$('#loungestats_csvexport').click(function(){
+		var useaccs = (!setting_domerge || setting_domerge == '0') ? [user_steam64] : accounts.active;
+		var d = new Date();
+
+		var csvContent = 'data:application/csv; charset=charset=iso-8859-1, Users represented in Export(SteamID64):;="' + useaccs.join(', ') + '"\n \
+											Time of Export:;' + d.getUTCDate() + '-' + d.getUTCMonth() + '-' + d.getUTCFullYear() + ' ' + d.getUTCHours() + ':' + d.getUTCMinutes() + '\n \
+											Currency:;'+currencyText+'\n \
+											Bet Data:\n \
+											Game;Date;Match ID;Bet Outcome;Bet Value;Value Change;Overall Profit;Bet Items;Won Items;Lost Items\n';
+
+		for(var i in betsKeys) {
+			var b = bets[betsKeys[i]];
+			var c = chartData[i];
+			var betdate = b.date;
+
+			csvContent += c[4].replace('<b>','[').replace('</b>',']') +';'+ b.date +';'+ b.matchid +';'+ b.matchoutcome +';'+ forceExcelDecimal(c[2],true) +';'+ forceExcelDecimal(c[5],true) +';'+ forceExcelDecimal(c[1],true) +';'+ b.items.bet.join(', ') +';'+ b.items.won.join(', ') +';'+ b.items.lost.join(', ') +'\n';
+		}
+
+		var encodedUri = encodeURI(csvContent);
+		var link = document.createElement("a");
+		link.setAttribute("href", encodedUri);
+		link.setAttribute("download", "LoungeStats_Export.csv");
+		link.click();
+	}).removeAttr('id');
+
 	$('#loungestats_screenshotbutton').click(function(){
 		if($('#loungestats_screenshotbutton').text() != "Screenshot") return;
-		alert("The Screenshot will be taken in 5 Seconds so that you can Hover a bet if you want to...");
+		alert("The Screenshot will be taken in 4 Seconds so that you can Hover a bet if you want to...\n\n You can also quickly put the graph in Fullscreen mode!");
 		$('#loungestats_screenshotbutton').text("Waiting");
 		setTimeout(function(){$('#loungestats_screenshotbutton').text("Waiting.")},1000);
 		setTimeout(function(){$('#loungestats_screenshotbutton').text("Waiting..")},2000);
 		setTimeout(function(){$('#loungestats_screenshotbutton').text("Waiting...")},3000);
-		setTimeout(function(){$('#loungestats_screenshotbutton').text("Waiting....")},4000);
 		setTimeout(function(){
 			$('#loungestats_screenshotbutton').text("Uploading...");
 			//$('#loungestats_profitgraph').attr("style", "width: 900px; height: 450px;");
@@ -519,16 +581,18 @@ function generateStatsPage() {
 			});
 			var ttip = $("#loungestats_profitgraph .jqplot-highlighter-tooltip")[0];
 			if(ttip.style.display != "none"){
+				var topoffset = parseInt(ttip.style.top);
+				if(topoffset < 20) topoffset = 20;
 				context.font="16px Arial";
-				context.fillStyle = "#393938";
+				context.fillStyle = "rgba(57,57,57,.8)";
 				context.strokeStyle = "#808080";
-				context.fillRect(parseInt(ttip.style.left), parseInt(ttip.style.top), ttip.clientWidth, ttip.clientHeight);
+				context.fillRect(parseInt(ttip.style.left), topoffset, ttip.clientWidth, ttip.clientHeight);
 				context.lineWidth="1";
-				context.rect(parseInt(ttip.style.left), parseInt(ttip.style.top), ttip.clientWidth, ttip.clientHeight);
+				context.rect(parseInt(ttip.style.left), topoffset, ttip.clientWidth, ttip.clientHeight);
 				context.stroke();
-				context.fillStyle = "#FFF";
+				context.fillStyle = "rgba(220,220,220,.8)";
 				var strs = ttip.innerHTML.replace(/<br>/g,"|").replace(/<.+?>/g,"").split("|");
-				for(var i = 0; i < strs.length; i++) context.fillText(strs[i], parseInt(ttip.style.left)+5, parseInt(ttip.style.top)+18 +(i*16))
+				for(var i = 0; i < strs.length; i++) context.fillText(strs[i], parseInt(ttip.style.left)+5, topoffset+18+(i*16))
 			}
 			context.font="14px Arial";
 			context.fillStyle = "#000";
@@ -545,7 +609,7 @@ function generateStatsPage() {
 					Authorization: 'Client-ID 449ec55696fd751'
 				},
 				data: {
-					image: newCanvas.toDataURL("image/jpeg", 0.90).replace("data:image/jpeg;base64,",""),
+					image: newCanvas.toDataURL("image/jpeg", 0.92).replace("data:image/jpeg;base64,",""),
 					title: "LoungeStats Profit Graph Autoupload",
 					description: "Visit http://reddit.com/r/LoungeStats for more infos!"
 				},
@@ -566,10 +630,11 @@ function generateStatsPage() {
 					}
 				},
 				error: function(){
+					$('#loungestats_screenshotbutton').text("Screenshot");
 					alert("Sorry, uploading the image to imgur failed :(\n\nTry it again in a second and doublecheck that imgur is up!");
 				}
 			});
-		},5000)
+		},4000)
 	})
 }
 
@@ -814,9 +879,10 @@ function loadStats(clean) {
 	$(window).off('resize');
 	cleanparse = clean;
 	$('#ajaxCont').html('<a id="loungestats_settingsbutton" class="button">LoungeStats Settings</a> \
-											<a id="loungestats_reloadbutton" class="button" style="display: none !important;">Refresh cache</a> \
-											<a id="loungestats_resetzoombutton" class="button" style="display: none !important;">Reset Zoom</a> \
-											<a id="loungestats_screenshotbutton" class="button" style="display: none !important;">Screenshot</a> \
+											<a id="loungestats_reloadbutton" class="button hideuntilready">Refresh cache</a> \
+											<a id="loungestats_resetzoombutton" class="button hideuntilready">Reset Zoom</a> \
+											<a id="loungestats_screenshotbutton" class="button hideuntilready">Screenshot</a> \
+											<a id="loungestats_csvexport" class="button hideuntilready">Export CSV (Excel)</a> \
 											<a class="button" target="_blank" href="http://steamcommunity.com/tradeoffer/new/?partner=33309635&token=H0lCbkY3">Donate ♥</a> \
 											<a class="button" target="_blank" href="http://reddit.com/r/LoungeStats">Subreddit</a> \
 											<br><hr><br> \
@@ -899,20 +965,7 @@ function saveSettings() {
 	});
 	localStorage['LoungeStats_accounts'] = JSON.stringify(accounts);
 
-	if(setting_currency == '3') {
-		currencysymbol = '€';
-	}
-	else if(setting_currency == '2') {
-		currencysymbol = '£';
-	}
-	else if(setting_currency == '5') {
-		currencysymbol = 'р';
-	}
-	else if(setting_currency == '1') {
-		currencysymbol = '$';
-	} else {
-		currencysymbol = 'R$';
-	}
+	setCurrencySymbol();
 	$('#loungestats_overlay').fadeOut(500);
 	loadStats();
 }
@@ -933,7 +986,7 @@ function init() {
 							 #loungestats_fullscreenbutton{margin-right: 29px !important; margin-top: -5px !important; height: 14px; z-index: 8998; position: relative;} \
 							 #loungestats_fullscreenbutton.fullsc{position: fixed;margin: 0 !important;right: 34px; top: -5px;} \
 							 #loungestats_profitgraph{position: relative; height: 400px; clear: left; z-index: 322;} \
-							 #loungestats_profitgraph.fullsc{background-color: #ddd;height: 100% !important;left: 0;margin: 0;position: fixed !important;top: 0;width: 100%;} \
+							 #loungestats_profitgraph.fullsc{background-color: #DDD;height: 100% !important;left: 0;margin: 0;position: fixed !important;top: 0;width: 100%;} \
 							 #loungestats_settings_leftpanel{width: 278px; float: left;} \
 							 #loungestats_settings_rightpanel{width: 188px; float: left; margin-left: 11px;} \
 							 #loungestats_settings_panelcontainer{width: 500px;} \
@@ -943,8 +996,9 @@ function init() {
 							 #loungestats_mergepicks{border:2px solid #ccc; height: 100px; overflow-y: scroll; height: 258px; padding: 5px;-moz-box-sizing: border-box;-webkit-box-sizing: border-box;box-sizing: border-box;} \
 							 #loungestats_mergepicks div:first-child{font-weight: bold;} \
 							 #loungestats_mergepicks input{height: 20px !important;vertical-align: middle;} \
-							 #loungestats_datecontainer{position: relative} \
-							 #loungestats_stats_text a{color: blue}');
+							 #loungestats_datecontainer{position: relative;} \
+							 #loungestats_stats_text a{color: blue;} \
+							 .hideuntilready{display: none !important;}');
 
 	GM_addStyle('.calendar {top: 5px !important; left: 108px !important; font-family: \'Trebuchet MS\', Tahoma, Verdana, Arial, sans-serif !important;font-size: 0.9em !important;background-color: #EEE !important;color: #333 !important;border: 1px solid #DDD !important;-moz-border-radius: 4px !important;-webkit-border-radius: 4px !important;border-radius: 4px !important;padding: 0.2em !important;width: 14em !important;}.calendar .months {background-color: #F6AF3A !important;border: 1px solid #E78F08 !important;-moz-border-radius: 4px !important;-webkit-border-radius: 4px !important;border-radius: 4px !important;color: #FFF !important;padding: 0.2em !important;text-align: center !important;}.calendar .prev-month,.calendar .next-month {padding: 0 !important;}.calendar .prev-month {float: left !important;}.calendar .next-month {float: right !important;}.calendar .current-month {margin: 0 auto !important;}.calendar .months .prev-month,.calendar .months .next-month {color: #FFF !important;text-decoration: none !important;padding: 0 0.4em !important;-moz-border-radius: 4px !important;-webkit-border-radius: 4px !important;border-radius: 4px !important;cursor: pointer !important;}.calendar .months .prev-month:hover,.calendar .months .next-month:hover {background-color: #FDF5CE !important;color: #C77405 !important;}.calendar table {border-collapse: collapse !important;padding: 0 !important;font-size: 0.8em !important;width: 100% !important;}.calendar th {text-align: center !important; color: black !important;}.calendar td {text-align: right !important;padding: 1px !important;width: 14.3% !important;}.calendar tr{border: none !important; background: none !important;}.calendar td span {display: block !important;color: #1C94C4 !important;background-color: #F6F6F6 !important;border: 1px solid #CCC !important;text-decoration: none !important;padding: 0.2em !important;cursor: pointer !important;}.calendar td span:hover {color: #C77405 !important;background-color: #FDF5CE !important;border: 1px solid #FBCB09 !important;}.calendar td.today span {background-color: #FFF0A5 !important;border: 1px solid #FED22F !important;color: #363636 !important;}');
 
@@ -1039,4 +1093,5 @@ function init() {
 	$('#loungestats_settingswindow').click(function(e) {e.stopPropagation();$('.calendar').css('display','none');});
 }
 
+setCurrencySymbol();
 init();
