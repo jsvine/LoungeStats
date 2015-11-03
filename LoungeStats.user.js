@@ -4,7 +4,7 @@
 // @author			Kinsi http://reddit.com/u/kinsi55
 // @include			http://csgolounge.com/myprofile
 // @include     http://dota2lounge.com/myprofile
-// @version			0.2.6
+// @version			0.2.7
 // @require			http://bibabot.de/stuff/jquery-2.1.1.min.js
 // @require			http://bibabot.de/stuff/jquery.jqplot.min.js
 // @require			http://bibabot.de/stuff/jqplot.cursor.min.js
@@ -25,7 +25,7 @@ var app_id = window.location.hostname == 'dota2lounge.com' ? '570' : '730';
 var cleanparse = false;
 var inexactAlert = false;
 var bets = {};
-var version = "0.2.6RC";
+var version = '0.2.7RC';
 var newVersion = (localStorage['LoungeStats_lastversion'] != version);
 
 var setting_method = localStorage['LoungeStats_setting_method'];
@@ -89,12 +89,13 @@ function isValidDate(s) {
 }
 
 function getLoungeBetHistory(callback) {
+
 	if(app_id == '730') {
 		$.ajax({
 			url: 'ajax/betHistory.php',
 			type: 'POST',
-			success: function(data) {callback(data)},
-			error: function() {callback(null)}
+			success: function(data) {callback(data);},
+			error: function() {callback(null);}
 		});
 	} else {
 		$.ajax({
@@ -104,11 +105,11 @@ function getLoungeBetHistory(callback) {
 				$.ajax({
 					url: 'ajax/betHistoryArchives.php',
 					type: 'POST',
-					success: function(dataArchived) {callback(data.split("</tbody>")[0]+dataArchived.split("<tbody>")[1])},
-					error: function() {callback(null)}
+					success: function(dataArchived) {callback(data.split('</tbody>')[0]+dataArchived.split('<tbody>')[1]);},
+					error: function() {callback(null);}
 				});
 			},
-			error: function() {callback(null)}
+			error: function() {callback(null);}
 		});
 	}
 }
@@ -130,70 +131,71 @@ function parseLoungeBetHistory(html, callback) {
 			var matchoutcome = bet.children[1].children[0].classList[0];
 			var tocache = {'matchid': betid, 'date': date, 'intdate': new Date(Date.parse(date.replace(/-/g,' ') + ' +0')).getTime(), 'matchoutcome': matchoutcome, 'items': {'bet':[], 'won':[], 'lost':[]}};
 
-			tocache['teams'] = [bet.children[2].children[0].textContent, bet.children[4].children[0].textContent];
-			tocache['winner'] = (bet.children[4].style["fontWeight"] == 'bold')+0;
+			tocache.teams = [bet.children[2].children[0].textContent, bet.children[4].children[0].textContent];
+			tocache.winner = (bet.children[4].style.fontWeight == 'bold')+0;
 
-			var betItems = $(bet).next().find("div > div.name > b:first-child");
-			var wonItems = $(bet).next().next().find("div > div.name > b:first-child");
+			var betItems = $(bet).next().find('div > div.name > b:first-child');
+			var wonItems = $(bet).next().next().find('div > div.name > b:first-child');
 
 			//Iterate trough all the items and add them to an array
 			$(betItems).each(function(i, item) {
 				var itemname = item.textContent.trim();
-				tocache['items']['bet'].push(itemname);
-				if(matchoutcome == 'lost') {
-					tocache['items']['lost'].push(itemname);
+				tocache.items.bet.push(itemname);
+				console.log(wonItems.length);
+				if(wonItems.length === 0 /*matchoutcome == 'lost' Lounge admins are retarded*/) {
+					tocache.items.lost.push(itemname);
 				}
 			});
-			if(matchoutcome == 'won') {
-				$(wonItems).each(function(i, item) {
-					var itemname = item.textContent.trim();
-					tocache['items']['won'].push(itemname);
-				});
-			}
+			//if(matchoutcome == 'won') {
+			$(wonItems).each(function(i, item) {
+				var itemname = item.textContent.trim();
+				tocache.items.won.push(itemname);
+			});
+			//}
 			if(setting_debug == 1) console.log(tocache);
 
 			localStorage['LoungeStats_betcache_s'+user_steam64+'_'+betid] = JSON.stringify(tocache);
 		}
 	});
 
-	addAcc(user_steam64, $("#profile h1:first-child").text());
+	addAcc(user_steam64, $('#profile h1:first-child').text());
 
-	var useaccs = accounts['active'];
+	var useaccs = accounts.active;
 
 	var bits = setting_beforedate.split('.');
   var d = new Date(bits[2], bits[1]-1, bits[0]).getTime();
 
-	if(!setting_domerge || setting_domerge == 0) useaccs = [user_steam64];
+	if(!setting_domerge || setting_domerge === 0) useaccs = [user_steam64];
 
-	for(x in useaccs) {
+	for(var x in useaccs) {
 		var accid = useaccs[x];
-		for(lSKey in localStorage) {
+		for(var lSKey in localStorage) {
 			if(lSKey.indexOf('LoungeStats_betcache_s'+accid+'_') != -1) {
 				var parsedStorage = JSON.parse(localStorage[lSKey]);
 				//var tocache = {'matchid': betid, 'date': date, 'matchoutcome': matchoutcome, 'items': {'bet':[], 'won':[], 'lost':[]}};
 
-				if(parsedStorage['intdate'] > d) {
-					var key = parsedStorage['intdate'].toString() + parsedStorage['matchid'];
+				if(parsedStorage.intdate > d) {
+					var key = parsedStorage.intdate.toString() + parsedStorage.matchid;
 					if(!(key in bets)) {
 						bets[key] = parsedStorage;
 					} else {
-						bets[key]['items']['bet'] = bets[key]['items']['bet'].concat(parsedStorage['items']['bet']);
-						bets[key]['items']['won'] = bets[key]['items']['won'].concat(parsedStorage['items']['won']);
-						bets[key]['items']['lost'] = bets[key]['items']['lost'].concat(parsedStorage['items']['lost']);
+						bets[key].items.bet = bets[key].items.bet.concat(parsedStorage.items.bet);
+						bets[key].items.won = bets[key].items.won.concat(parsedStorage.items.won);
+						bets[key].items.lost = bets[key].items.lost.concat(parsedStorage.items.lost);
 					}
 				}
 			}
 		}
 	}
 
-	for(bet in bets) {
+	for(var bet in bets) {
 		var dabet = bets[bet];
 
-		var itemarray = dabet['items']['bet'].concat(dabet['items']['won']).concat(dabet['items']['lost']);
+		var itemarray = dabet.items.bet.concat(dabet.items.won).concat(dabet.items.lost);
 
-		for(i in itemarray) {
+		for(var i in itemarray) {
 			var itemname = itemarray[i];
-			var date = dabet['date'];
+			var date = dabet.date;
 			var localKeyName = getItemKeyName(itemname, date);
 
 			if(cleanparse || (!(localKeyName in cacheWeapons) && !getItemPrice(itemname, date))) {
@@ -226,7 +228,7 @@ function parseLoungeBetHistory(html, callback) {
 		}, function(prog) {
 			var endTick = new Date().getTime();
 			aboutTime.shift();
-			aboutTime.push(endTick-startTick)
+			aboutTime.push(endTick-startTick);
 			startTick = endTick;
 			var eta = 0;
 			for(var i = 0; i < 10; i++) eta += aboutTime[i];
@@ -235,14 +237,14 @@ function parseLoungeBetHistory(html, callback) {
 			eta = parseInt(eta);
 
 			if(eta >= 30){
-				eta += " Minute(s), Better grab some coffee..";
+				eta += ' Minute(s), Better grab some coffee..';
 			}else{
-				eta += " Minute(s)";
+				eta += ' Minute(s)';
 			}
 
 			$('#loungestats_loadprogress').val(prog);
 			$('#loungestats_loadprogresslabel').html('(' + prog + '/' + cwlen + ')<br/>ETA: ~'+eta);
-		}, setting_method != 0);
+		}, setting_method !== 0);
 	}
 	else {
 		$('#loungestats_datacontainer').html('Generating stats... (If you can see this either you are using a calculator or, more likely, something went horribly wrong)');
@@ -288,58 +290,60 @@ function generateStatsPage() {
 	var absoluteIndex = 0;
 	var betsKeys = Object.keys(bets).sort();
 
-	if(betsKeys.length == 0){
+	if(betsKeys.length === 0){
 		$('#loungestats_datacontainer').html('Looks like you dont have any bets with the set criteria');
 		return;
 	}
 
-	var firstDate = bets[betsKeys[0]]['intdate'];
-	var lastDate = bets[betsKeys[betsKeys.length-1]]['intdate'];
+	var firstDate = bets[betsKeys[0]].intdate;
+	var lastDate = bets[betsKeys[betsKeys.length-1]].intdate;
 
 
 	for(var i in betsKeys) {
 		var b = bets[betsKeys[i]];
-		var betid = b['matchid'];
+		var betid = b.matchid;
 
 		var value = 0.0;
 		var betValue = 0.0;
 		var teamString = '';
 		var mergeMatchWin = false;
-		var wonOrlost = (b['matchoutcome'] == 'won' || b['matchoutcome'] == 'lost');
+		var wonOrlost = (b.matchoutcome == 'won' || b.matchoutcome == 'lost');
 
 		if(wonOrlost) {
-			teamString = '<b>'+b['teams'][b['winner']]+'</b> vs. '+b['teams'][!b['winner']+0];
+			teamString = '<b>'+b.teams[b.winner]+'</b> vs. '+b.teams[!b.winner+0];
+			if(teamString == '<b></b> vs. ') teamString = 'Prediction';
 		} else {
-			teamString = b['teams'].join(" vs. ");
+			teamString = b.teams.join(' vs. ');
+		}
+		var itemname, item, price;
+
+		for(item in b.items.bet) {
+			itemname = b.items.bet[item];
+			betValue += getItemPrice(itemname, b.date);
 		}
 
-		for(var item in b['items']['bet']) {
-			var itemname = b['items']['bet'][item];
-			betValue += getItemPrice(itemname, b['date']);
-		}
-
-		if(setting_debug == 1) console.log("#################################");
-		if(setting_debug == 1) console.log(">>>Winnings");
-		if(setting_debug == 1) console.log(b['items']['won']);
-		for(var item in b['items']['won']) {
-			var itemname = b['items']['won'][item];
-			var price = getItemPrice(itemname, b['date']);
-			if(setting_debug == 1) console.log(itemname + ": " + price + " (" + b['date'] + ")");
+		if(setting_debug == 1) console.log('################################# ' + teamString + '(' + betid + ')');
+		if(setting_debug == 1) console.log('>>>Winnings');
+		if(setting_debug == 1) console.log(b.items.won);
+		for(item in b.items.won) {
+			itemname = b.items.won[item];
+			price = getItemPrice(itemname, b.date);
+			if(setting_debug == 1) console.log(itemname + ': ' + price + ' (' + b.date + ')');
 			value += price;
 			overallWon += price;
 		}
 
-		if(setting_debug == 1) console.log(">>>Losses");
-		if(setting_debug == 1) console.log(b['items']['lost']);
+		if(setting_debug == 1) console.log('>>>Losses');
+		if(setting_debug == 1) console.log(b.items.lost);
 
-		for(var item in b['items']['lost']) {
-			var itemname = b['items']['lost'][item];
-			var price = getItemPrice(itemname, b['date']);
-			if(setting_debug == 1) console.log(itemname + ": " + price + " (" + b['date'] + ")");
+		for(item in b.items.lost) {
+			itemname = b.items.lost[item];
+			price = getItemPrice(itemname, b.date);
+			if(setting_debug == 1) console.log(itemname + ': ' + price + ' (' + b.date + ')');
 			value -= price;
 			overallLost += price;
 		}
-		if(setting_debug == 1) console.log("net change:" + value);
+		if(setting_debug == 1) console.log('net change:' + value);
 		overallValue += value;
 
 		mergeMatchWin = (value >= 0);
@@ -362,7 +366,7 @@ function generateStatsPage() {
 				winstreakstart = i - (winstreaktemp-1);
 				winstreaklast = winstreaktemp;
 			}
-			value = "+"+value.toFixed(2);
+			value = '+'+value.toFixed(2);
 		}else if(wonOrlost) {
 			//loss
 			if((value * -1) > biggestloss) {
@@ -379,22 +383,22 @@ function generateStatsPage() {
 			value = value.toFixed(2).toString();
 		}
 
-		if(setting_debug == 1) console.log('node(' + b['date'] + ')->' + overallValue);
+		if(setting_debug == 1) console.log('node(' + b.date + ')->' + overallValue);
 
-		chartData.push([setting_xaxis == 0 ? b['date'] : absoluteIndex, parseFloat(overallValue.toFixed(2)), betValue, value, teamString]);
-		if(setting_bvalue == 1) betData.push([setting_xaxis == 0 ? b['date'] : absoluteIndex, betValue, teamString]);
+		chartData.push([setting_xaxis === 0 ? b.date : absoluteIndex, parseFloat(overallValue.toFixed(2)), betValue, value, teamString]);
+		if(setting_bvalue == 1) betData.push([setting_xaxis === 0 ? b.date : absoluteIndex, betValue, teamString]);
 		absoluteIndex++;
 	}
 
 	//generate DOM content
 	$('#loungestats_datacontainer').empty();
-	$('#loungestats_datacontainer').append('<a id="loungestats_fullscreenbutton" class="button">Toggle Fullscreen</a><div id="pricehistory" style="position: relative; height: 400px; clear: left;" class="jqplot-target"></div>');
+	$('#loungestats_datacontainer').append('<a id="loungestats_fullscreenbutton" class="button">Toggle Fullscreen</a><div id="loungestats_profitgraph" class="jqplot-target"></div>');
 
-	var boundary = parseInt(absoluteIndex * 0.05);
+	var boundary = parseInt(absoluteIndex * 0.05); if(boundary === 0) boundary = 1;
 
-	var xaxis_def = setting_xaxis == 0 ? {renderer:$.jqplot.DateAxisRenderer,tickOptions: {formatString: '%d %b %y'}, min: firstDate*0.9999,maxx: lastDate*1.0001} : {renderer: $.jqplot.LinearAxisRenderer, tickOptions: {formatString: '%i'}};
+	var xaxis_def = setting_xaxis === 0 ? {renderer:$.jqplot.DateAxisRenderer,tickOptions: {formatString: '%d %b %y'}, min: firstDate*0.9999,maxx: lastDate*1.0001} : {renderer: $.jqplot.LinearAxisRenderer, tickOptions: {formatString: '%i'}};
 
-	var plot = $.jqplot('pricehistory', [chartData, betData], {
+	var plot = $.jqplot('loungestats_profitgraph', [chartData, betData], {
 		title:{text: 'Overall profit over time'},
 		gridPadding:{left: 55, right: 35, top: 25, bottom: 25},
 		axesDefaults:{ showTickMarks:false },
@@ -411,37 +415,37 @@ function generateStatsPage() {
 		highlighter: {show: true, tooltipOffset: 20, fadeTooltip: true, yvalues: 4},
 		series:[{lineWidth:2, markerOptions:{show: false, style:'circle'}, highlighter: {formatString: '<strong>%s</strong><br>Overall Profit: %s<br>Value bet: %s<br>Value change: %s '  + currencysymbol + '<br>Game: %s'}},
 						{lineWidth:1, markerOptions:{show: false, style:'circle'}, highlighter: {formatString: '<strong>%s</strong><br>Value bet: %s<br>Game: %s'/*, tooltipLocation: 'sw'*/}}],
-		seriesColors: [ "#FF8A00", "#008A00" ]
+		seriesColors: [ '#FF8A00', '#008A00' ]
 	});
 
-	$('#pricehistory').bind('jqplotDataClick',
+	$('#loungestats_profitgraph').bind('jqplotDataClick',
 		function (ev, seriesIndex, pointIndex, data) {
-			window.open("/match?m="+bets[betsKeys[pointIndex]]['matchid'],'_blank');
+			window.open('/match?m='+bets[betsKeys[pointIndex]].matchid,'_blank');
 		}
 	);
 
-	$('#pricehistory').bind('jqplotDataMouseOver', function () {
+	$('#loungestats_profitgraph').bind('jqplotDataMouseOver', function () {
 		$('.jqplot-event-canvas').css( 'cursor', 'pointer' );
 	});
 
-	$('#pricehistory').on('jqplotDataUnhighlight', function() {
+	$('#loungestats_profitgraph').on('jqplotDataUnhighlight', function() {
 		$('.jqplot-event-canvas').css('cursor', 'crosshair');
 	});
 
-	if(setting_xaxis == 0) {
-		$("#pricehistory").dblclick(function() {plot_zomx(plot, firstDate*0.9999, lastDate*1.0001); clearSelection()});
-		$("#loungestats_resetzoombutton").click(function() {plot_zomx(plot, firstDate*0.9999, lastDate*1.0001)});
+	if(setting_xaxis === 0) {
+		$('#loungestats_profitgraph').dblclick(function() {plot_zomx(plot, firstDate*0.9999, lastDate*1.0001); clearSelection();});
+		$('#loungestats_resetzoombutton').click(function() {plot_zomx(plot, firstDate*0.9999, lastDate*1.0001);});
 	}else{
 		//with the linearaxisrenderer, i cant pre-set minx, and maxx, lol.
 		plot_zomx(plot, -boundary, absoluteIndex+boundary);
-		$("#pricehistory").dblclick(function() {plot_zomx(plot, -boundary, absoluteIndex+boundary); clearSelection()});
-		$("#loungestats_resetzoombutton").click(function() {plot_zomx(plot, -boundary, absoluteIndex+boundary)});
+		$('#loungestats_profitgraph').dblclick(function() {plot_zomx(plot, -boundary, absoluteIndex+boundary); clearSelection();});
+		$('#loungestats_resetzoombutton').click(function() {plot_zomx(plot, -boundary, absoluteIndex+boundary);});
 	}
 
-	$('#loungestats_fullscreenbutton').click(function() {toggleFullscreen(plot)});
-	$("#loungestats_resetzoombutton").show();
+	$('#loungestats_fullscreenbutton').click(function() {toggleFullscreen(plot);});
+	$('#loungestats_resetzoombutton').show();
 
-	$(window).on('resize', function(event, ui) {plot.replot()});
+	$(window).on('resize', function(event, ui) {plot.replot();});
 
 	$('#loungestats_datacontainer').append('<div id="loungestats_stats_text"></div>');
 
@@ -473,7 +477,7 @@ function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback,
 	var item = itemarray[itemarraykeylist[arrayoffset]];
 
 	if(!item) {
-		if(activefast == 0) callback(true);
+		if(activefast === 0) callback(true);
 		return true;
 	}
 	if(exact) {
@@ -482,7 +486,7 @@ function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback,
 			if(success) {
 				progresscallback(arrayoffset+1);
 				//Recursively re-call myself with a delay until all prices are parsed, this is because the amount of requests to the market possible is limited
-				setTimeout(function() {getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset+1, callback, progresscallback, exact)}, delay);
+				setTimeout(function() {getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset+1, callback, progresscallback, exact);}, delay);
 			}
 			else {
 				$('#loungestats_datacontainer').html('Could not connect to steam communitymarket API, try again later...');
@@ -490,7 +494,7 @@ function getAllPrices(itemarray, itemarraykeylist, delay, arrayoffset, callback,
 			}
 		});
 	} else {
-		if(arrayoffset == 0) fastindex = 0;
+		if(arrayoffset === 0) fastindex = 0;
 		fastLooping = true;
 		while(activefast < 10 && fastindex < itemarraykeylist.length) {
 			item = itemarray[itemarraykeylist[fastindex]];
@@ -523,7 +527,7 @@ function cacheItem(itemname, callback, exactfallback) {
 		onload: function(response) {
 			if(response.status == 200) {
 				var responseParsed = JSON.parse(response.responseText);
-				if(responseParsed.success == true && 'median_price' in responseParsed) {
+				if(responseParsed.success === true && 'median_price' in responseParsed) {
 					var price = parseFloat(responseParsed['median_price'].replace('&#36;','').replace('&#163;','').replace('&#8364;','').replace('p&#1091;&#1073;.','').replace('&#82;','').replace(',', '.').trim());
 					if(setting_debug == 1) console.log('Cached item price of ' + itemname + ' | Price: ' + price);
 					localStorage.setItem(localKeyName, price);
@@ -596,7 +600,7 @@ function cacheItemExact(itemname, loungetime, callback) {
 				if(rgx) {
 					var arr = JSON.parse('[[' + rgx[1] + ']]');
 
-					if(arr != null) {
+					if(arr !== null) {
 						var prev = null;
 						//and iterate trough it here if it was found
 						var p = 0.0;
@@ -615,21 +619,21 @@ function cacheItemExact(itemname, loungetime, callback) {
 								p *= curr_usd_rub;
 							}else if(curr[0].indexOf('&#36;') > -1) {
 								//hi
-							} else { inexact = true }
+							} else { inexact = true; }
 
-							if(datadate >= betdate && (prev == null || prev < betdate)) {
+							if(datadate >= betdate && (prev === null || prev < betdate)) {
 								if(inexact && !inexactAlert) {
 									inexactAlert = true;
-									alert("For your Information. Since you are using the exact method you want exact prices. Because of this, i am alerting you that i cant provide exact prices for you sadly, the reason being that i dont know how to deal with your local currency. The best you can do is to select US$ as your currency, this will display values in your local currency. The alternative is to use the fast method because i can tell steam which currency i want the prices in for that, which i cant for the price history sadly. I'm sorry for that");
+									alert('For your Information. Since you are using the exact method you want exact prices. Because of this, i am alerting you that i cant provide exact prices for you sadly, the reason being that i dont know how to deal with your local currency. The best you can do is to select US$ as your currency, this will display values in your local currency. The alternative is to use the fast method because i can tell steam which currency i want the prices in for that, which i cant for the price history sadly. I\'m sorry for that');
 								}
-								if(setting_debug == 1) console.log('Parsed: ' + datadate + ' Requested: ' + loungetime)
+								if(setting_debug == 1) console.log('Parsed: ' + datadate + ' Requested: ' + loungetime);
 								localStorage[localKeyName] = p;
 								callback(true);
 								return;
 							}
 							prev = datadate;
 						}
-						if(setting_debug == 1) console.log('Parsed: ' + datadate + ' Requested: ' + loungetime)
+						if(setting_debug == 1) console.log('Parsed: ' + datadate + ' Requested: ' + loungetime);
 						localStorage[localKeyName] = p;
 						callback(true);
 						return;
@@ -648,7 +652,7 @@ function cacheItemExact(itemname, loungetime, callback) {
 }
 //Internal function for generating central localstorage key names
 function getItemKeyName(itemname, loungetime) {
-	if(loungetime && setting_method != 0) {
+	if(loungetime && setting_method !== 0) {
 		var betdate = new Date(Date.parse(loungetime.replace(/-/g,' ') + ' +0'));
 		return 'LoungeStats_itemexact_' + betdate.getUTCDate() + '_' + betdate.getUTCMonth() + '_' + betdate.getYear() + '_' + itemname.replace(/ /g, '_');
 	} else {
@@ -659,7 +663,7 @@ function getItemKeyName(itemname, loungetime) {
 function getItemPrice(itemname, loungetime) {
 	var localKeyName = getItemKeyName(itemname, loungetime);
 	if(localStorage[localKeyName]) {
-		if(loungetime && setting_method != 0) {
+		if(loungetime && setting_method !== 0) {
 			return convertUsd(parseFloat(localStorage[localKeyName]));
 		}
 		return parseFloat(localStorage[localKeyName]);
@@ -669,7 +673,7 @@ function getItemPrice(itemname, loungetime) {
 //Main sub that handles most of the stuff
 function loadStats(clean) {
 	if(loading) {
-		alert('I\'m already loading, sheesh.')
+		alert('I\'m already loading, sheesh.');
 		return;
 	}
 
@@ -699,28 +703,30 @@ function loadStats(clean) {
 		$('#ajaxCont').prepend('<div id="loungestats_updateinfo" class="bpheader">LoungeStats was updated to ' + version + '!<br/>Please make sure to check <a href="http://reddit.com/r/loungestats">the subreddit</a> to see what changes were made!</div>');
 	}
 
-	$('#loungestats_reloadbutton').click(function() {loadStats(true)});
+	$('#loungestats_reloadbutton').click(function() {loadStats(true);});
 	$('#loungestats_settingsbutton').click(function() {
     $('#loungestats_overlay').fadeIn(500);
 
+    var multiaccthing;
+
     if(app_id == 730) {
-      var multiaccthing = '<div>CS:GO Accounts</div>';
+      multiaccthing = '<div>CS:GO Accounts</div>';
     } else {
-      var multiaccthing = '<div>DotA Accounts</div>';
+      multiaccthing = '<div>DotA Accounts</div>';
     }
 
-    for(i in accounts['aval']) {
-      if(accounts['active'].indexOf(i) > -1) {
-        multiaccthing += '<input type="checkbox" name="'+i+'" checked> "<a href="http://steamcommunity.com/profiles/'+i+'" target="_blank">'+accounts['aval'][i]+'</a>"<br/>';
+    for(var i in accounts.aval) {
+      if(accounts.active.indexOf(i) > -1) {
+        multiaccthing += '<input type="checkbox" name="'+i+'" checked> "<a href="http://steamcommunity.com/profiles/'+i+'" target="_blank">'+accounts.aval[i]+'</a>"<br/>';
       } else {
-        multiaccthing += '<input type="checkbox" name="'+i+'"> "<a href="http://steamcommunity.com/profiles/'+i+'" target="_blank">'+accounts['aval'][i]+'</a>"<br/>';
+        multiaccthing += '<input type="checkbox" name="'+i+'"> "<a href="http://steamcommunity.com/profiles/'+i+'" target="_blank">'+accounts.aval[i]+'</a>"<br/>';
       }
     }
-    $("#loungestats_mergepicks").html(multiaccthing);
+    $('#loungestats_mergepicks').html(multiaccthing);
   }).removeAttr('id');
 	loading = true;
 	getLoungeBetHistory(function(data) {
-		if(data != null) {
+		if(data !== null) {
 			parseLoungeBetHistory(data, function(success) {
 				if(success) {
 					generateStatsPage();
@@ -736,11 +742,11 @@ function loadStats(clean) {
 
 function toggleFullscreen(jqplot)
 {
-	if($("#pricehistory").hasClass('fullsc')) {
-		$('#pricehistory').removeClass('fullsc');
+	if($('#loungestats_profitgraph').hasClass('fullsc')) {
+		$('#loungestats_profitgraph').removeClass('fullsc');
 		$('#loungestats_fullscreenbutton').removeClass('fullsc');
 	} else {
-		$('#pricehistory').addClass('fullsc');
+		$('#loungestats_profitgraph').addClass('fullsc');
 		$('#loungestats_fullscreenbutton').addClass('fullsc');
 	}
 	jqplot.replot();
@@ -759,13 +765,13 @@ function saveSettings()
 	if(isValidDate($('#loungestats_beforedate').val())){
 		localStorage['LoungeStats_setting_beforedate'] = $('#loungestats_beforedate').val(); setting_beforedate = localStorage['LoungeStats_setting_beforedate'];
 	} else {
-		alert("The format of the given date is invalid! Use Day.Month.Year!");
+		alert('The format of the given date is invalid! Use Day.Month.Year!');
 		return;
 	}
 
-	accounts['active'] = [];
-	$("#loungestats_mergepicks input").each(function(i,c) {
-		if(c.checked) accounts['active'].push(c.name);
+	accounts.active = [];
+	$('#loungestats_mergepicks input').each(function(i,c) {
+		if(c.checked) accounts.active.push(c.name);
 	});
 	localStorage['LoungeStats_accounts'] = JSON.stringify(accounts);
 
@@ -790,7 +796,7 @@ function saveSettings()
 //I know that gm scripts are called on the documentReady, i like having it like this nevertheless.
 function init() {
 	$('section:nth-child(2) div:nth-child(1)').append('<a id="loungestats_tabbutton" class="button">LoungeStats</a>');
-	GM_addStyle(".jqplot-highlighter-tooltip {background-color: #393938; border: 1px solid gray; padding: 5px; color: #ccc} \
+	GM_addStyle('.jqplot-highlighter-tooltip {background-color: #393938; border: 1px solid gray; padding: 5px; color: #ccc} \
 							 .jqplot-xaxis {margin-top: 5px; font-size: 12px} \
 							 .jqplot-yaxis {margin-right: 5px; width: 55px; font-size: 12px} \
 							 .jqplot-yaxis-tick {text-align: right; width: 100%} \
@@ -802,7 +808,8 @@ function init() {
 							 #loungestats_settings_leftpanel input{width: 274px;} \
 							 #loungestats_fullscreenbutton{margin-right: 29px !important; margin-top: -5px !important; height: 14px; z-index: 8998; position: relative;} \
 							 #loungestats_fullscreenbutton.fullsc{position: fixed;margin: 0 !important;right: 34px; top: -5px;} \
-							 #pricehistory.fullsc{background-color: #ddd;height: 100% !important;left: 0;margin: 0;position: fixed !important;top: 0;width: 100%;} \
+							 #loungestats_profitgraph{position: relative; height: 400px; clear: left; z-index: 322;} \
+							 #loungestats_profitgraph.fullsc{background-color: #ddd;height: 100% !important;left: 0;margin: 0;position: fixed !important;top: 0;width: 100%;} \
 							 #loungestats_settings_leftpanel{width: 278px; float: left;} \
 							 #loungestats_settings_rightpanel{width: 188px; float: left; margin-left: 11px;} \
 							 #loungestats_settings_panelcontainer{width: 500px;} \
@@ -813,9 +820,9 @@ function init() {
 							 #loungestats_mergepicks div:first-child{font-weight: bold;} \
 							 #loungestats_mergepicks input{height: 20px !important;vertical-align: middle;} \
 							 #loungestats_datecontainer{position: relative} \
-							 #loungestats_stats_text a{color: blue}");
+							 #loungestats_stats_text a{color: blue}');
 
-	GM_addStyle(".calendar {top: 5px !important; left: 108px !important; font-family: 'Trebuchet MS', Tahoma, Verdana, Arial, sans-serif !important;font-size: 0.9em !important;background-color: #EEE !important;color: #333 !important;border: 1px solid #DDD !important;-moz-border-radius: 4px !important;-webkit-border-radius: 4px !important;border-radius: 4px !important;padding: 0.2em !important;width: 14em !important;}.calendar .months {background-color: #F6AF3A !important;border: 1px solid #E78F08 !important;-moz-border-radius: 4px !important;-webkit-border-radius: 4px !important;border-radius: 4px !important;color: #FFF !important;padding: 0.2em !important;text-align: center !important;}.calendar .prev-month,.calendar .next-month {padding: 0 !important;}.calendar .prev-month {float: left !important;}.calendar .next-month {float: right !important;}.calendar .current-month {margin: 0 auto !important;}.calendar .months .prev-month,.calendar .months .next-month {color: #FFF !important;text-decoration: none !important;padding: 0 0.4em !important;-moz-border-radius: 4px !important;-webkit-border-radius: 4px !important;border-radius: 4px !important;cursor: pointer !important;}.calendar .months .prev-month:hover,.calendar .months .next-month:hover {background-color: #FDF5CE !important;color: #C77405 !important;}.calendar table {border-collapse: collapse !important;padding: 0 !important;font-size: 0.8em !important;width: 100% !important;}.calendar th {text-align: center !important; color: black !important;}.calendar td {text-align: right !important;padding: 1px !important;width: 14.3% !important;}.calendar tr{border: none !important; background: none !important;}.calendar td span {display: block !important;color: #1C94C4 !important;background-color: #F6F6F6 !important;border: 1px solid #CCC !important;text-decoration: none !important;padding: 0.2em !important;cursor: pointer !important;}.calendar td span:hover {color: #C77405 !important;background-color: #FDF5CE !important;border: 1px solid #FBCB09 !important;}.calendar td.today span {background-color: #FFF0A5 !important;border: 1px solid #FED22F !important;color: #363636 !important;}")
+	GM_addStyle('.calendar {top: 5px !important; left: 108px !important; font-family: \'Trebuchet MS\', Tahoma, Verdana, Arial, sans-serif !important;font-size: 0.9em !important;background-color: #EEE !important;color: #333 !important;border: 1px solid #DDD !important;-moz-border-radius: 4px !important;-webkit-border-radius: 4px !important;border-radius: 4px !important;padding: 0.2em !important;width: 14em !important;}.calendar .months {background-color: #F6AF3A !important;border: 1px solid #E78F08 !important;-moz-border-radius: 4px !important;-webkit-border-radius: 4px !important;border-radius: 4px !important;color: #FFF !important;padding: 0.2em !important;text-align: center !important;}.calendar .prev-month,.calendar .next-month {padding: 0 !important;}.calendar .prev-month {float: left !important;}.calendar .next-month {float: right !important;}.calendar .current-month {margin: 0 auto !important;}.calendar .months .prev-month,.calendar .months .next-month {color: #FFF !important;text-decoration: none !important;padding: 0 0.4em !important;-moz-border-radius: 4px !important;-webkit-border-radius: 4px !important;border-radius: 4px !important;cursor: pointer !important;}.calendar .months .prev-month:hover,.calendar .months .next-month:hover {background-color: #FDF5CE !important;color: #C77405 !important;}.calendar table {border-collapse: collapse !important;padding: 0 !important;font-size: 0.8em !important;width: 100% !important;}.calendar th {text-align: center !important; color: black !important;}.calendar td {text-align: right !important;padding: 1px !important;width: 14.3% !important;}.calendar tr{border: none !important; background: none !important;}.calendar td span {display: block !important;color: #1C94C4 !important;background-color: #F6F6F6 !important;border: 1px solid #CCC !important;text-decoration: none !important;padding: 0.2em !important;cursor: pointer !important;}.calendar td span:hover {color: #C77405 !important;background-color: #FDF5CE !important;border: 1px solid #FBCB09 !important;}.calendar td.today span {background-color: #FFF0A5 !important;border: 1px solid #FED22F !important;color: #363636 !important;}');
 
 	$('body').append('<div id="loungestats_overlay"> \
 		<div id="loungestats_settingswindow"'+((setting_domerge == 1) ? ' class="accounts"' : '')+'> \
@@ -873,11 +880,11 @@ function init() {
 		</div> \
 	</div>');
 
-	$("#loungestats_domerge").change(function() {
-		if($("#loungestats_domerge").val() == 1) {
-			$("#loungestats_settingswindow").addClass("accounts");
+	$('#loungestats_domerge').change(function() {
+		if($('#loungestats_domerge').val() == 1) {
+			$('#loungestats_settingswindow').addClass('accounts');
 		} else {
-			$("#loungestats_settingswindow").removeClass("accounts");
+			$('#loungestats_settingswindow').removeClass('accounts');
 		}
 	});
 
@@ -899,13 +906,13 @@ function init() {
 		'dateFormat': 'd.m.Y'
 	});
 
-	$(".calendar").detach().appendTo('#loungestats_datecontainer');
+	$('.calendar').detach().appendTo('#loungestats_datecontainer');
 
-	$('#loungestats_tabbutton').click(function() {loadStats(false)}).removeAttr('id');
+	$('#loungestats_tabbutton').click(function() {loadStats(false);}).removeAttr('id');
 	$('#loungestats_overlay, #loungestats_settings_close').click(function() {$('#loungestats_overlay').fadeOut(500);});
-	$('#loungestats_settings_save').click(function() {saveSettings()});
-	$('#loungestats_settingswindow #loungestats_beforedate, .calendar').click(function(e) {e.stopPropagation()});
-	$('#loungestats_settingswindow').click(function(e) {e.stopPropagation();$(".calendar").css("display","none")});
+	$('#loungestats_settings_save').click(function() {saveSettings();});
+	$('#loungestats_settingswindow #loungestats_beforedate, .calendar').click(function(e) {e.stopPropagation();});
+	$('#loungestats_settingswindow').click(function(e) {e.stopPropagation();$('.calendar').css('display','none');});
 }
 
 init();
